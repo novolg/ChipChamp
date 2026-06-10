@@ -1,0 +1,33 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 var(--sp-2);
+  font-weight: 650;
+}
+
+.subtitle {
+  color: var(--c-text-dim);
+  margin: 0;
+}
+
+.app-shell {
+  padding: var(--sp-8);
+}

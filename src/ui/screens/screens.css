@@ -1,0 +1,239 @@
+/* ---- Header nav ---- */
+.app-nav {
+  margin-left: auto;
+  display: flex;
+  gap: var(--sp-2);
+}
+.app-nav button {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--c-text-dim);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.app-nav button:hover {
+  color: var(--c-text);
+}
+.app-nav .nav-active {
+  color: var(--c-text);
+  background: var(--c-surface-2);
+}
+
+/* ---- Generic screen ---- */
+.screen {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--sp-6);
+  width: 100%;
+  overflow: auto;
+}
+.link-back {
+  background: none;
+  border: none;
+  color: var(--c-accent);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 0 var(--sp-3);
+}
+
+/* ---- Learning path ---- */
+.path-intro {
+  margin-bottom: var(--sp-6);
+}
+.path-intro .btn {
+  margin-top: var(--sp-2);
+}
+.path-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.path-step {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-surface);
+  border: 1px solid var(--c-surface-2);
+  border-radius: var(--radius-md);
+}
+.path-step-locked {
+  opacity: 0.5;
+}
+.path-step-complete {
+  border-color: #234c3c;
+}
+.path-marker {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+.path-step-complete .path-marker {
+  color: var(--c-good);
+}
+.path-step-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.path-type {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--c-text-faint);
+}
+.path-step-title {
+  font-weight: 600;
+}
+
+/* ---- Lessons ---- */
+.lesson-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+.md-p {
+  line-height: 1.6;
+  margin: 0;
+}
+.md-list {
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.6;
+}
+.callout {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-md);
+  background: var(--c-surface);
+  border-left: 3px solid var(--c-accent);
+  line-height: 1.5;
+}
+.callout-warning {
+  border-left-color: var(--c-warn);
+}
+.callout-icon {
+  font-size: 18px;
+}
+.card-example {
+  margin: var(--sp-2) 0;
+}
+.card-example-cards {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.card-example figcaption {
+  color: var(--c-text-dim);
+  font-size: 13px;
+}
+
+/* ---- Hand rank table ---- */
+.rank-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rank-table th,
+.rank-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-surface-2);
+}
+.rank-table th {
+  color: var(--c-text-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.rank-example {
+  font-family: ui-monospace, monospace;
+  color: var(--c-text-dim);
+}
+
+/* ---- Quiz ---- */
+.quiz-q {
+  margin-bottom: var(--sp-6);
+}
+.quiz-prompt {
+  font-weight: 600;
+  line-height: 1.5;
+}
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.quiz-option {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--c-text);
+  cursor: pointer;
+  font-size: 14px;
+}
+.quiz-option:hover:not(:disabled) {
+  border-color: var(--c-accent);
+}
+.quiz-option-chosen {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+.quiz-option-correct {
+  border-color: var(--c-good);
+  background: #163a2c;
+}
+.quiz-option-wrong {
+  border-color: var(--c-bad);
+  background: #3a1c20;
+}
+.quiz-explain {
+  margin-top: var(--sp-2);
+  color: var(--c-text-dim);
+  font-size: 13px;
+}
+.quiz-result {
+  padding: var(--sp-4);
+  border-radius: var(--radius-md);
+  background: var(--c-surface);
+}
+.quiz-pass {
+  border: 1px solid #234c3c;
+}
+.quiz-fail {
+  border: 1px solid #4a2730;
+}
+
+/* ---- Practice ---- */
+.practice-coach {
+  background: var(--c-accent-soft);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  margin: var(--sp-4) 0;
+  line-height: 1.5;
+}
+.practice-feedback {
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius-md);
+  background: var(--c-surface);
+}
+.fb-right {
+  border: 1px solid #234c3c;
+}
+.fb-wrong {
+  border: 1px solid #4a2730;
+}
+.fb-head {
+  font-weight: 700;
+  margin: 0 0 var(--sp-2);
+}
