@@ -16,3 +16,7 @@ CLAUDE.local.md
 
 # brainstorming scratch
 .superpowers/
+
+# development docs — local-only, do not publish
+MASTER_PLAN.md
+docs/superpowers/

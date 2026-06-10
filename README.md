@@ -1,4 +1,4 @@
-# Poker Tutor
+# ChipChamp
 
 A browser app that teaches **Texas Hold'em** to beginners and lets them practice single-player against rule-based AI bots, with a live coaching rail (hand strength, pot odds, suggested action). No real money, no backend — everything runs client-side; progress is saved in `localStorage`.
 
@@ -29,5 +29,3 @@ No environment variables are required (fully client-side). See `.env.example`.
 - `src/advisor/` — real-time coaching advice.
 - `src/tutorial/` — lessons, scripted practice hands, quizzes, progress.
 - `src/ui/` — React components, screens, theme, Zustand stores.
-
-See `MASTER_PLAN.md` for status and architecture decisions.
