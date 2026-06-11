@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import type { GameState } from '../../../engine/types';
+import type { ActionType } from '../../../engine/types';
 import { advise } from '../../../advisor/advisor';
 
 interface CoachingRailProps {
@@ -11,67 +11,75 @@ interface CoachingRailProps {
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const ACTION_LABEL: Record<string, string> = {
-  fold: 'Fold', check: 'Check', call: 'Call', bet: 'Bet', raise: 'Raise', allin: 'All-in',
+  fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE', allin: 'ALL-IN',
+};
+const ACTION_BTN: Record<ActionType, string> = {
+  fold: 'btn-red', check: 'btn-blue', call: 'btn-blue',
+  bet: 'btn-orange', raise: 'btn-orange', allin: 'btn-orange', postBlind: 'btn-blue',
 };
 
 export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
-  const [showWhy, setShowWhy] = useState(true);
   const seat = game.seats.find((s) => s.id === seatId);
   const canAdvise = active && seat && seat.holeCards.length === 2 && game.phase === 'betting';
   const advice = canAdvise ? advise(game, seatId) : null;
+  const equityFill = advice ? Math.min(100, advice.equityEstimate * 100) : 0;
+  const needMark = advice && advice.potOdds > 0 ? Math.min(100, advice.potOdds * 100) : null;
 
   return (
-    <aside className="coach-rail">
-      <h2 className="coach-title">Coach</h2>
+    <aside className="coach">
+      <div className="coach-head">
+        <span className="coach-title">COACH</span>
+        <span className="coach-live" aria-label="live coaching" />
+      </div>
 
       {!advice && (
-        <p className="subtitle coach-idle">
+        <p className="coach-idle">
           {game.phase === 'handComplete'
             ? 'Hand complete. Deal the next hand to keep learning.'
-            : 'Advice appears here when it’s your turn.'}
+            : "Advice appears here when it's your turn."}
         </p>
       )}
 
       {advice && (
-        <div className="coach-body">
-          <div className="coach-row">
-            <span className="label">Your hand</span>
-            <span className="coach-value">{advice.handStrengthLabel}</span>
-          </div>
-          <div className="coach-row">
-            <span className="label">Equity</span>
-            <span className="coach-value">~{pct(advice.equityEstimate)}</span>
-          </div>
-          {advice.potOdds > 0 && (
-            <div className="coach-row">
-              <span className="label">Pot odds</span>
-              <span className="coach-value">~{pct(advice.potOdds)} to call</span>
+        <>
+          <div className="coach-tiles">
+            <div className="coach-tile">
+              <span className="coach-tile-label">HAND</span>
+              <span className="coach-tile-value">{advice.handStrengthLabel}</span>
             </div>
-          )}
+            <div className="coach-tile">
+              <span className="coach-tile-label">EQUITY</span>
+              <span className="coach-tile-value coach-equity">{pct(advice.equityEstimate)}</span>
+            </div>
+            <div className="coach-tile">
+              <span className="coach-tile-label">NEEDS</span>
+              <span className="coach-tile-value coach-needs">
+                {advice.potOdds > 0 ? pct(advice.potOdds) : '—'}
+              </span>
+            </div>
+          </div>
+
+          <div className="coach-bar">
+            <span className="coach-bar-fill" style={{ width: `${equityFill}%` }} />
+            {needMark !== null && (
+              <span className="coach-bar-mark" style={{ left: `${needMark}%` }} />
+            )}
+          </div>
 
           <div className="coach-suggest">
-            <span className="label">Suggested</span>
-            <span className={`suggest-pill suggest-${advice.suggestedAction}`}>
+            <button className={`btn ${ACTION_BTN[advice.suggestedAction]} coach-suggest-btn`} disabled>
               {ACTION_LABEL[advice.suggestedAction]}
               {advice.suggestedAmount ? ` ${advice.suggestedAmount.toLocaleString()}` : ''}
+            </button>
+            <span className="coach-confidence">
+              {advice.confidence.toUpperCase()}
+              <br />
+              CONFIDENCE
             </span>
-            <span className={`confidence confidence-${advice.confidence}`}>{advice.confidence} confidence</span>
           </div>
 
-          <button className="why-toggle" onClick={() => setShowWhy((v) => !v)}>
-            {showWhy ? '▾ Why' : '▸ Why'}
-          </button>
-          {showWhy && (
-            <div className="why-panel">
-              <p className="why-reason">{advice.reasoning}</p>
-              <ul className="why-detail">
-                {advice.detail.map((d, i) => (
-                  <li key={i}>{d}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+          <p className="coach-note">{advice.reasoning}</p>
+        </>
       )}
     </aside>
   );

@@ -20,14 +20,102 @@ h1,
 h2,
 h3 {
   margin: 0 0 var(--sp-2);
-  font-weight: 650;
+  font-weight: 800;
 }
 
 .subtitle {
-  color: var(--c-text-dim);
+  color: var(--c-text-3);
   margin: 0;
 }
 
-.app-shell {
-  padding: var(--sp-8);
+/* ---- App stage: the canvas field sits behind a centered screen frame ---- */
+.suit-field {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.9;
+}
+.app-stage {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 48px 24px 72px;
+}
+
+/* ============ Universal button system ============
+   Gradient fill + white Kanit-italic label, soft colored drop shadow.
+   :active inverts to a light press state and sinks 2–3px. */
+.btn {
+  border: none;
+  border-radius: var(--r-btn);
+  padding: 14px 22px;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.08s, background 0.08s, color 0.08s, box-shadow 0.08s,
+    filter 0.08s;
+}
+.btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  background: var(--c-press-bg);
+  color: var(--c-press-text);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-blue {
+  background: var(--c-blue-grad);
+  box-shadow: var(--sh-btn-blue);
+}
+.btn-orange {
+  background: var(--c-orange-grad);
+  box-shadow: var(--sh-btn-orange);
+}
+.btn-red {
+  background: var(--c-red-grad);
+  box-shadow: var(--sh-btn-red);
+}
+.btn-dark {
+  background: var(--c-dark-grad);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+/* Outlined variant (e.g. REVIEW on a completed tile, ALL-IN) */
+.btn-outline-green {
+  background: transparent;
+  border: 2px solid var(--c-green);
+  box-shadow: 0 0 16px rgba(46, 213, 115, 0.15);
+}
+.btn-outline-orange {
+  background: var(--c-dark-grad);
+  border: 2px solid var(--c-orange);
+  box-shadow: 0 0 16px rgba(255, 165, 2, 0.12);
+}
+.btn-blue:active:not(:disabled),
+.btn-orange:active:not(:disabled),
+.btn-red:active:not(:disabled),
+.btn-dark:active:not(:disabled),
+.btn-outline-green:active:not(:disabled),
+.btn-outline-orange:active:not(:disabled) {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Keep the legacy alias used by tutorial sub-screens working. */
+.btn-primary {
+  background: var(--c-blue-grad);
+  box-shadow: var(--sh-btn-blue);
 }

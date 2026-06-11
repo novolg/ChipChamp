@@ -1,10 +1,13 @@
 import { Fragment, type ReactNode } from 'react';
 
-/** Render inline **bold** segments. */
+/** Render inline **bold** and *italic* segments. */
 function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
+  return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return <em key={i}>{part.slice(1, -1)}</em>;
     }
     return <Fragment key={i}>{part}</Fragment>;
   });

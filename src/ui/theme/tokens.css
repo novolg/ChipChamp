@@ -1,38 +1,87 @@
-/* Modern flat / minimal design tokens. Learning tool, not casino. */
+/* ChipChamp v2 design tokens — chunky/tactile body + electric navy table.
+   Single source of truth for the redesign (see design_handoff README). */
 :root {
-  /* Surfaces */
-  --c-bg: #0f1115;
-  --c-surface: #171a21;
-  --c-surface-2: #1f2530;
-  --c-felt: #1f6f53; /* muted, flat green — a nod to felt without the casino gloss */
-  --c-felt-rim: #15513c;
+  /* ---- Surfaces ---- */
+  --c-bg: #0d0d14; /* page, behind the canvas field */
+  --c-surface: #14141e; /* learn screen frame */
+  --c-surface-table: #12121c; /* table screen frame */
+  --c-surface-2: #1d1d2a; /* raised: cards, panels, seat plates, action bar */
+  --c-surface-sunken: #14141e; /* stat tiles, slider track, stepper */
+  --c-sunken-edge: #0a0a12; /* inset top edge on sunken elements */
 
-  /* Text */
-  --c-text: #e8ebf0;
-  --c-text-dim: #9aa3b2;
-  --c-text-faint: #6b7280;
+  /* ---- Borders / hairlines ---- */
+  --c-border: #23232f;
+  --c-border-2: #2a2a38;
+  --c-line: #1f2130;
 
-  /* Accents */
-  --c-accent: #4f86f7;
-  --c-accent-soft: #2b3a5c;
-  --c-good: #34d399;
-  --c-warn: #fbbf24;
-  --c-bad: #f87171;
+  /* ---- Text ---- */
+  --c-text: #e8eaf0;
+  --c-text-2: #b9bbcb;
+  --c-text-3: #a8aebf;
+  --c-text-muted: #8e90a6;
+  --c-text-faint: #6f7186;
 
-  /* Cards */
-  --c-card-face: #f7f8fa;
-  --c-card-back: #34406b;
-  --c-card-red: #d23b50;
-  --c-card-black: #1f2530;
+  /* ---- Brand blue ---- */
+  --c-blue: #006efd;
+  --c-blue-grad: linear-gradient(180deg, #3088ff 0%, #006efd 52%, #0052cc 100%);
+  --c-blue-edge: #0048b0;
+  --c-blue-text: #3b8fff;
 
-  /* Geometry */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.45);
+  /* ---- Orange ---- */
+  --c-orange: #ffa502;
+  --c-orange-grad: linear-gradient(180deg, #ff9d24 0%, #f07c00 55%, #c25e00 100%);
+  --c-orange-edge: #b87500;
+  --c-orange-hi: #ffd166; /* numeric highlights */
 
-  /* Spacing scale */
+  /* ---- Red ---- */
+  --c-red: #ff4757;
+  --c-red-grad: linear-gradient(180deg, #ff7080 0%, #f2394e 55%, #d72439 100%);
+  --c-red-edge: #b22230;
+
+  /* ---- Green ---- */
+  --c-green: #2ed573;
+  --c-green-edge: #1b7a44;
+
+  /* ---- Neutral (dark) gradient button / inactive pill ---- */
+  --c-dark-grad: linear-gradient(180deg, #2b2b3a 0%, #1f1f2b 100%);
+
+  /* ---- Press state (universal button :active inversion) ---- */
+  --c-press-bg: #eef1f8;
+  --c-press-text: #14141e;
+
+  /* ---- Felt ---- */
+  --c-felt: radial-gradient(ellipse at 50% 32%, #1a3a78 0%, #142c5c 48%, #0c1b3a 100%);
+  --c-felt-rail: #18233e;
+
+  /* ---- Card paper ---- */
+  --c-card-paper: linear-gradient(157deg, #ffffff 0%, #f5f7fb 62%, #e7ecf3 100%);
+  --c-card-ink: #16181d;
+  --c-card-red: #d12f43;
+
+  /* ---- Geometry ---- */
+  --r-screen: 18px;
+  --r-panel: 16px;
+  --r-btn: 12px;
+  --r-btn-sm: 9px;
+  --r-plate: 10px;
+  --r-card: 11px;
+  --r-pill: 99px;
+
+  /* ---- Shadows ---- */
+  --sh-panel: 0 5px 0 #101018, inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 34px rgba(0, 0, 0, 0.35);
+  --sh-plate: 0 4px 0 #101018, inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 20px rgba(0, 0, 0, 0.35);
+  --sh-sunken: inset 0 2px 0 var(--c-sunken-edge);
+  --sh-screen: 0 24px 70px rgba(0, 0, 0, 0.5);
+  --sh-btn-blue: 0 10px 22px rgba(0, 110, 253, 0.3);
+  --sh-btn-orange: 0 10px 22px rgba(255, 159, 0, 0.3);
+  --sh-btn-red: 0 10px 22px rgba(242, 57, 78, 0.3);
+
+  /* ---- Texture: faint grid on screen surfaces ---- */
+  --grid-dots: radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+
+  /* ---- Spacing scale ---- */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -40,5 +89,8 @@
   --sp-6: 24px;
   --sp-8: 32px;
 
-  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* ---- Type ---- */
+  --font-ui: 'Kanit', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-card: 'Oswald', sans-serif;
 }

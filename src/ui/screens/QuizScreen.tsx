@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
+import { AppFrame } from '../components/AppFrame';
 import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
 
 export function QuizScreen({ quizId }: { quizId: string }) {
@@ -11,7 +12,13 @@ export function QuizScreen({ quizId }: { quizId: string }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
 
-  if (!quiz) return <div className="screen">Quiz not found.</div>;
+  if (!quiz) {
+    return (
+      <AppFrame variant="learn" active="learn">
+        <div className="screen">Quiz not found.</div>
+      </AppFrame>
+    );
+  }
 
   const correctCount = quiz.questions.filter((q) => answers[q.id] === q.correctOptionId).length;
   const score = correctCount / quiz.questions.length;
@@ -24,6 +31,7 @@ export function QuizScreen({ quizId }: { quizId: string }) {
   };
 
   return (
+    <AppFrame variant="learn" active="learn">
     <div className="screen quiz">
       <button className="link-back" onClick={() => go({ name: 'home' })}>← Path</button>
       <h2>{quiz.title}</h2>
@@ -34,7 +42,7 @@ export function QuizScreen({ quizId }: { quizId: string }) {
           <div key={q.id} className="quiz-q">
             <p className="quiz-prompt">{qi + 1}. {q.prompt}</p>
             <div className="quiz-options">
-              {q.options.map((opt) => {
+              {q.options.map((opt, oi) => {
                 const isChosen = chosen === opt.id;
                 const isCorrect = opt.id === q.correctOptionId;
                 let cls = 'quiz-option';
@@ -49,7 +57,10 @@ export function QuizScreen({ quizId }: { quizId: string }) {
                     disabled={submitted}
                     onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt.id }))}
                   >
-                    {opt.label}
+                    <span className="quiz-option-key" aria-hidden="true">
+                      {String.fromCharCode(65 + oi)}
+                    </span>
+                    <span>{opt.label}</span>
                   </button>
                 );
               })}
@@ -65,9 +76,10 @@ export function QuizScreen({ quizId }: { quizId: string }) {
         </button>
       ) : (
         <div className={`quiz-result ${passed ? 'quiz-pass' : 'quiz-fail'}`}>
+          <p className="quiz-result-head">{passed ? 'Passed' : 'Not yet'}</p>
           <p>
             You scored {correctCount}/{quiz.questions.length} ({Math.round(score * 100)}%).{' '}
-            {passed ? 'Passed! 🎉' : `You need ${Math.round(quiz.passThreshold * 100)}% to pass.`}
+            {passed ? 'Nice work.' : `You need ${Math.round(quiz.passThreshold * 100)}% to pass.`}
           </p>
           <div className="quiz-actions">
             {passed ? (
@@ -79,5 +91,6 @@ export function QuizScreen({ quizId }: { quizId: string }) {
         </div>
       )}
     </div>
+    </AppFrame>
   );
 }

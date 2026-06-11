@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
+import { AppFrame } from '../components/AppFrame';
 import { SCRIPTED_HANDS_BY_ID } from '../../tutorial/content/scriptedHands';
 import { buildScriptedGame } from '../../tutorial/practice';
 import type { Action } from '../../engine/types';
@@ -20,7 +21,13 @@ export function PracticeHandScreen({ handId }: { handId: string }) {
   const [state, setState] = useState(() => (hand ? buildScriptedGame(hand) : null));
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
-  if (!hand || !state) return <div className="screen">Practice hand not found.</div>;
+  if (!hand || !state) {
+    return (
+      <AppFrame variant="learn" active="learn">
+        <div className="screen">Practice hand not found.</div>
+      </AppFrame>
+    );
+  }
 
   const { game, heroId } = state;
   const checkpoint = hand.checkpoints.find((c) => c.atStreet === game.street);
@@ -41,6 +48,7 @@ export function PracticeHandScreen({ handId }: { handId: string }) {
   };
 
   return (
+    <AppFrame variant="learn" active="learn">
     <div className="screen practice">
       <button className="link-back" onClick={() => go({ name: 'home' })}>← Path</button>
       <h2>{hand.title}</h2>
@@ -72,5 +80,6 @@ export function PracticeHandScreen({ handId }: { handId: string }) {
         </div>
       )}
     </div>
+    </AppFrame>
   );
 }

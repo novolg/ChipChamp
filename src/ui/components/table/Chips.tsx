@@ -1,15 +1,21 @@
 interface ChipsProps {
   amount: number;
+  /** Chip colour for the stack. Raiser/aggressor seats use orange. */
+  tone?: 'blue' | 'orange';
   label?: string;
 }
 
-/** A small chip stack badge showing a chip amount committed to the pot. */
-export function Chips({ amount, label }: ChipsProps) {
+/** A bet/commit pill: a couple of overlapping poker-chip images + a mono amount. */
+export function Chips({ amount, tone = 'blue', label }: ChipsProps) {
   if (amount <= 0) return null;
+  const chip = `/assets/chip-${tone}.png`;
   return (
-    <div className="chips" title={label}>
-      <span className="chip-dot" aria-hidden />
-      <span className="chip-amount">{amount.toLocaleString()}</span>
+    <div className={`chips chips-${tone}`} title={label}>
+      <span className="chips-stack" aria-hidden="true">
+        <img src={chip} alt="" className="chips-img chips-img-0" />
+        <img src={chip} alt="" className="chips-img chips-img-1" />
+      </span>
+      <span className="chips-amount">{amount.toLocaleString()}</span>
     </div>
   );
 }

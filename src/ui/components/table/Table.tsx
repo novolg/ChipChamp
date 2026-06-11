@@ -1,11 +1,15 @@
-import type { GameState } from '../../../engine/types';
+import type { Card, GameState } from '../../../engine/types';
 import { Seat } from './Seat';
 import { Board } from './Board';
+import { PlayingCard } from './Card';
 import { blindSeats, isShowdown, winningCardKeys } from '../../lib/derive';
 
 interface TableProps {
   game: GameState;
 }
+
+const key = (c: Card) => `${c.rank}${c.suit}`;
+const POSITIONS = ['left', 'center', 'right'] as const;
 
 export function Table({ game }: TableProps) {
   const { sb, bb } = blindSeats(game);
@@ -16,29 +20,51 @@ export function Table({ game }: TableProps) {
   const hero = game.seats.find((s) => s.isHuman);
   const opponents = game.seats.filter((s) => !s.isHuman);
 
-  const seatProps = (id: number) => ({
-    isButton: id === game.buttonSeatId,
-    isToAct: id === game.toActSeatId,
-    revealCards: reveal || (hero?.id === id),
-    blindLabel: id === sb ? ('SB' as const) : id === bb ? ('BB' as const) : undefined,
-    highlightKeys: highlight,
-  });
+  const blindOf = (id: number): 'SB' | 'BB' | undefined =>
+    id === sb ? 'SB' : id === bb ? 'BB' : undefined;
 
   return (
     <div className="table">
-      <div className="table-opponents">
-        {opponents.map((seat) => (
-          <Seat key={seat.id} seat={seat} {...seatProps(seat.id)} />
-        ))}
-      </div>
+      <div className="table-cone" aria-hidden="true" />
 
       <div className="table-felt">
-        <Board board={game.board} pot={pot} highlightKeys={highlight} />
+        <div className="table-felt-noise" aria-hidden="true" />
+        <Board board={game.board} pot={pot} street={game.street} highlightKeys={highlight} />
       </div>
 
+      {opponents.slice(0, 3).map((seat, i) => (
+        <div key={seat.id} className={`seat-slot seat-slot-${POSITIONS[i]}`}>
+          <Seat
+            seat={seat}
+            isButton={seat.id === game.buttonSeatId}
+            isToAct={seat.id === game.toActSeatId && game.phase === 'betting'}
+            revealCards={reveal}
+            blindLabel={blindOf(seat.id)}
+            highlightKeys={highlight}
+          />
+        </div>
+      ))}
+
       {hero && (
-        <div className="table-hero">
-          <Seat seat={hero} {...seatProps(hero.id)} />
+        <div className="hero">
+          <div className="hero-cards">
+            {hero.holeCards.length === 2 ? (
+              hero.holeCards.map((c, i) => (
+                <PlayingCard key={i} card={c} size="hero" highlight={highlight.has(key(c))} />
+              ))
+            ) : (
+              <>
+                <div className="pcard pcard-hero pcard-empty" />
+                <div className="pcard pcard-hero pcard-empty" />
+              </>
+            )}
+          </div>
+          <div className="hero-plate">
+            <span className="hero-you">YOU</span>
+            {hero.id === game.buttonSeatId && <span className="hero-dealer">D</span>}
+            {blindOf(hero.id) && <span className="badge badge-blind">{blindOf(hero.id)}</span>}
+            <span className="hero-stack">{hero.stack.toLocaleString()}</span>
+          </div>
         </div>
       )}
     </div>

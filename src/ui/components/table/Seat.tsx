@@ -6,7 +6,7 @@ interface SeatProps {
   seat: SeatType;
   isButton: boolean;
   isToAct: boolean;
-  /** Reveal hole cards (hero always; opponents at showdown). */
+  /** Reveal hole cards (at showdown). */
   revealCards: boolean;
   blindLabel?: 'SB' | 'BB';
   highlightKeys?: Set<string>;
@@ -14,38 +14,51 @@ interface SeatProps {
 
 const key = (c: Card) => `${c.rank}${c.suit}`;
 
+/** Map a bot's name to its avatar art; fall back to Ben's. */
+function avatarFor(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes('ava')) return '/assets/bot-ava.png';
+  if (n.includes('cleo')) return '/assets/bot-cleo.png';
+  return '/assets/bot-ben.png';
+}
+
+/** A bot seat: fanned card backs (or revealed cards), avatar, name plate and bet pill. */
 export function Seat({ seat, isButton, isToAct, revealCards, blindLabel, highlightKeys }: SeatProps) {
   const folded = seat.status === 'folded';
   const allIn = seat.status === 'allin';
+  const showCards = revealCards && seat.holeCards.length === 2;
 
   return (
-    <div className={`seat ${isToAct ? 'seat-active' : ''} ${folded ? 'seat-folded' : ''}`}>
-      <div className="seat-cards">
-        {seat.holeCards.length === 0
-          ? <PlayingCard faceDown size="sm" />
-          : seat.holeCards.map((c, i) => (
+    <div className={`botseat${isToAct ? ' botseat-acting' : ''}${folded ? ' botseat-folded' : ''}`}>
+      <div className="botseat-top">
+        <div className="botseat-cards">
+          {showCards ? (
+            seat.holeCards.map((c, i) => (
               <PlayingCard
                 key={i}
                 card={c}
-                faceDown={!revealCards && !seat.isHuman}
-                highlight={revealCards && highlightKeys?.has(key(c))}
                 size="sm"
+                highlight={highlightKeys?.has(key(c))}
               />
-            ))}
-      </div>
-
-      <div className="seat-info">
-        <div className="seat-name">
-          {seat.name}
-          {isButton && <span className="badge badge-button" title="Dealer button">D</span>}
-          {blindLabel && <span className="badge badge-blind">{blindLabel}</span>}
+            ))
+          ) : (
+            <>
+              <img src="/assets/card-back.png" alt="" className="botseat-back botseat-back-l" />
+              <img src="/assets/card-back.png" alt="" className="botseat-back botseat-back-r" />
+            </>
+          )}
         </div>
-        <div className="seat-stack">{seat.stack.toLocaleString()}</div>
-        {folded && <div className="seat-status">Folded</div>}
-        {allIn && <div className="seat-status seat-status-allin">All-in</div>}
+        <img src={avatarFor(seat.name)} alt="" className="botseat-avatar" />
+        <div className="botseat-plate">
+          <span className="botseat-name">{seat.name}</span>
+          {isButton && <span className="badge badge-button" title="Dealer">D</span>}
+          {blindLabel && <span className="badge badge-blind">{blindLabel}</span>}
+          {isToAct && <span className="badge badge-acting">ACTING</span>}
+          {allIn && <span className="badge badge-allin">ALL-IN</span>}
+          <span className="botseat-stack">{seat.stack.toLocaleString()}</span>
+        </div>
       </div>
-
-      <Chips amount={seat.committedThisStreet} label="Committed this street" />
+      <Chips amount={seat.committedThisStreet} tone={isToAct ? 'orange' : 'blue'} label="Bet" />
     </div>
   );
 }

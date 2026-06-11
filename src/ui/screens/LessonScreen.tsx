@@ -1,5 +1,6 @@
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
+import { AppFrame } from '../components/AppFrame';
 import { LESSONS_BY_ID } from '../../tutorial/content/lessons';
 import { Markdown } from '../components/Markdown';
 import { HandRankTable } from '../components/HandRankTable';
@@ -10,7 +11,13 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
   const record = useProgressStore((s) => s.record);
   const lesson = LESSONS_BY_ID[lessonId];
 
-  if (!lesson) return <div className="screen">Lesson not found.</div>;
+  if (!lesson) {
+    return (
+      <AppFrame variant="learn" active="learn">
+        <div className="screen">Lesson not found.</div>
+      </AppFrame>
+    );
+  }
 
   const complete = () => {
     record({ type: 'lessonCompleted', lessonId });
@@ -18,6 +25,7 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
   };
 
   return (
+    <AppFrame variant="learn" active="learn">
     <div className="screen lesson">
       <button className="link-back" onClick={() => go({ name: 'home' })}>← Path</button>
       <h2>{lesson.title}</h2>
@@ -41,7 +49,9 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
             case 'callout':
               return (
                 <div key={i} className={`callout callout-${block.tone}`}>
-                  <span className="callout-icon">{block.tone === 'tip' ? '💡' : '⚠️'}</span>
+                  <span className="callout-badge" aria-hidden="true">
+                    {block.tone === 'tip' ? 'i' : '!'}
+                  </span>
                   <span>{block.text}</span>
                 </div>
               );
@@ -51,7 +61,8 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
         })}
       </div>
 
-      <button className="btn btn-primary" onClick={complete}>Mark complete & continue</button>
+      <button className="btn btn-blue" onClick={complete}>Mark complete &amp; continue</button>
     </div>
+    </AppFrame>
   );
 }

@@ -1,16 +1,19 @@
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
+import { AppFrame } from '../components/AppFrame';
 import { LEARNING_PATH } from '../../tutorial/content/learningPath';
 import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
 import { isStepComplete, isStepUnlocked } from '../../tutorial/progress/progressReducer';
 import type { LearningStep } from '../../tutorial/types';
 
 const TYPE_LABEL: Record<LearningStep['type'], string> = {
-  lesson: 'Lesson',
-  quiz: 'Quiz',
-  practice: 'Practice',
-  freePlay: 'Play',
+  lesson: 'LESSON',
+  quiz: 'QUIZ',
+  practice: 'PRACTICE',
+  freePlay: 'PLAY',
 };
+
+const cleanTitle = (t: string) => t.replace(/^(Learn|Quiz|Practice|Play): /, '');
 
 export function LearningPathHome() {
   const go = useNavStore((s) => s.go);
@@ -25,33 +28,73 @@ export function LearningPathHome() {
     }
   };
 
-  return (
-    <div className="screen path-home">
-      <div className="path-intro">
-        <h2>Your Learning Path</h2>
-        <p className="subtitle">Work through the steps in order. Each unlocks the next.</p>
-        <button className="btn" onClick={() => go({ name: 'free' })}>Skip to free play →</button>
-      </div>
+  const steps = LEARNING_PATH.map((step) => ({
+    step,
+    complete: isStepComplete(step, progress, QUIZZES_BY_ID),
+    unlocked: isStepUnlocked(step, LEARNING_PATH, progress, QUIZZES_BY_ID),
+  }));
+  const doneCount = steps.filter((s) => s.complete).length;
+  const total = steps.length;
+  const currentIndex = steps.findIndex((s) => s.unlocked && !s.complete);
+  const currentStep = currentIndex >= 0 ? steps[currentIndex].step : null;
 
-      <ol className="path-list">
-        {LEARNING_PATH.map((step) => {
-          const complete = isStepComplete(step, progress, QUIZZES_BY_ID);
-          const unlocked = isStepUnlocked(step, LEARNING_PATH, progress, QUIZZES_BY_ID);
-          const state = complete ? 'complete' : unlocked ? 'unlocked' : 'locked';
-          return (
-            <li key={step.id} className={`path-step path-step-${state}`}>
-              <span className="path-marker">{complete ? '✓' : unlocked ? '●' : '🔒'}</span>
-              <div className="path-step-body">
-                <span className="path-type">{TYPE_LABEL[step.type]}</span>
-                <span className="path-step-title">{step.title}</span>
+  return (
+    <AppFrame variant="learn" active="learn">
+      <div className="learn">
+        <div className="learn-strip">
+          <div className="learn-run">
+            <div className="learn-run-label">YOUR RUN</div>
+            <div className="learn-chips">
+              <span className="learn-chip-row" aria-hidden="true">
+                {Array.from({ length: total }).map((_, i) => (
+                  <img
+                    key={i}
+                    src={i < doneCount ? '/assets/chip-orange.png' : '/assets/chip-dark.png'}
+                    alt=""
+                    className={`learn-chip${i < doneCount ? ' learn-chip-earned' : ''}`}
+                  />
+                ))}
+              </span>
+              <span className="learn-chip-count">{doneCount} of {total} chips earned</span>
+            </div>
+          </div>
+          <div className="learn-strip-actions">
+            <button
+              className="btn btn-orange learn-resume"
+              onClick={() => (currentStep ? open(currentStep) : go({ name: 'free' }))}
+            >
+              {currentStep ? `RESUME → ${cleanTitle(currentStep.title).toUpperCase()}` : 'PATH COMPLETE → PLAY'}
+            </button>
+            <button className="btn btn-dark learn-skip" onClick={() => go({ name: 'free' })}>
+              SKIP TO FREE PLAY
+            </button>
+          </div>
+        </div>
+
+        <div className="learn-grid">
+          {steps.map(({ step, complete, unlocked }, i) => {
+            const state = complete ? 'complete' : unlocked ? 'active' : 'locked';
+            const lockedCaption =
+              i === currentIndex + 1 ? `FINISH STEP ${currentIndex + 1} TO UNLOCK` : 'LOCKED';
+            return (
+              <div key={step.id} className={`tile tile-${state}`}>
+                <div className="tile-head">
+                  <span className={`tile-type tile-type-${state}`}>{TYPE_LABEL[step.type]}</span>
+                  <span className="tile-num">{complete ? '✓' : i + 1}</span>
+                </div>
+                <div className="tile-title">{cleanTitle(step.title)}</div>
+                {state === 'active' && (
+                  <button className="btn btn-blue tile-btn" onClick={() => open(step)}>START</button>
+                )}
+                {state === 'complete' && (
+                  <button className="btn btn-outline-green tile-btn" onClick={() => open(step)}>REVIEW</button>
+                )}
+                {state === 'locked' && <div className="tile-lock-cap">{lockedCaption}</div>}
               </div>
-              <button className="btn" disabled={!unlocked} onClick={() => open(step)}>
-                {complete ? 'Review' : 'Start'}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </div>
+            );
+          })}
+        </div>
+      </div>
+    </AppFrame>
   );
 }
