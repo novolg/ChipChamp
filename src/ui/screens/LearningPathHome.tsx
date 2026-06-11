@@ -40,25 +40,6 @@ export function LearningPathHome() {
   return (
     <AppFrame variant="learn" active="learn">
       <div className="learn">
-        <div className="learn-strip">
-          <div className="learn-run">
-            <div className="learn-run-label">YOUR RUN</div>
-            <div className="learn-chips">
-              <span className="learn-chip-row" aria-hidden="true">
-                {Array.from({ length: total }).map((_, i) => (
-                  <img
-                    key={i}
-                    src={i < doneCount ? '/assets/chip-orange.png' : '/assets/chip-dark.png'}
-                    alt=""
-                    className={`learn-chip${i < doneCount ? ' learn-chip-earned' : ''}`}
-                  />
-                ))}
-              </span>
-              <span className="learn-chip-count">{doneCount} of {total} chips earned</span>
-            </div>
-          </div>
-        </div>
-
         <div className="learn-grid">
           {steps.map(({ step, complete, unlocked }, i) => {
             const state = complete ? 'complete' : unlocked ? 'active' : 'locked';
@@ -81,6 +62,23 @@ export function LearningPathHome() {
               </div>
             );
           })}
+        </div>
+
+        <div className="learn-strip">
+          <span className="learn-run-label">YOUR RUN</span>
+          <div className="learn-chips">
+            <span className="learn-chip-row" aria-hidden="true">
+              {Array.from({ length: total }).map((_, i) => (
+                <img
+                  key={i}
+                  src={i < doneCount ? '/assets/chip-orange.png' : '/assets/chip-dark.png'}
+                  alt=""
+                  className={`learn-chip${i < doneCount ? ' learn-chip-earned' : ''}`}
+                />
+              ))}
+            </span>
+            <span className="learn-chip-count">{doneCount} of {total} chips earned</span>
+          </div>
         </div>
       </div>
     </AppFrame>
