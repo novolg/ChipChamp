@@ -23,15 +23,19 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
           <img src="/assets/logo-wordmark.png" alt="ChipChamp" className="frame-logo" />
           {headerExtra && <span className="frame-header-extra">{headerExtra}</span>}
         </div>
-        <nav className="frame-nav">
+        <nav className="nav-switch" role="tablist">
           <button
-            className={`pill ${active === 'learn' ? 'pill-active' : 'pill-inactive'}`}
+            role="tab"
+            aria-selected={active === 'learn'}
+            className={`nav-seg${active === 'learn' ? ' nav-seg-active' : ''}`}
             onClick={() => go({ name: 'home' })}
           >
             LEARN
           </button>
           <button
-            className={`pill ${active === 'free' ? 'pill-active' : 'pill-inactive'}`}
+            role="tab"
+            aria-selected={active === 'free'}
+            className={`nav-seg${active === 'free' ? ' nav-seg-active' : ''}`}
             onClick={() => go({ name: 'free' })}
           >
             FREE PLAY

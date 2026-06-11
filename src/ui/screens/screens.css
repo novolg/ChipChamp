@@ -34,45 +34,44 @@
   padding: 0 32px;
   border-bottom: 2px solid var(--c-border);
 }
-.frame-header-learn { height: 100px; }
-.frame-header-table { height: 66px; }
+/* Header and logo are the same size in both Learn and Play modes. */
+.frame-header { height: 72px; }
 .frame-brand { display: flex; align-items: center; gap: 14px; }
 .frame-logo { display: block; height: 42px; }
-.frame-header-learn .frame-logo { height: 46px; }
 .frame-header-extra {
   font-size: 12px;
   font-weight: 700;
   color: var(--c-text-faint);
 }
-.frame-nav { display: flex; gap: 10px; }
 
-.pill {
-  padding: 9px 20px;
+/* Segmented Learn / Free Play switcher (sunken track + sliding active pill). */
+.nav-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+}
+.nav-seg {
+  padding: 7px 18px;
   border: none;
-  border-radius: 10px;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--c-text-muted);
   font-family: var(--font-ui);
   font-weight: 800;
   font-style: italic;
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: 0.5px;
   cursor: pointer;
-  transition: transform 0.08s, background 0.08s, color 0.08s, filter 0.08s;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s, filter 0.08s;
 }
-.pill:hover { filter: brightness(1.06); }
-.pill-active {
+.nav-seg:hover:not(.nav-seg-active) { color: var(--c-text-2); }
+.nav-seg-active {
   background: var(--c-blue-grad);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(0, 110, 253, 0.35);
-}
-.pill-inactive {
-  background: var(--c-dark-grad);
-  color: var(--c-text-2);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
-}
-.pill:active {
-  transform: translateY(2px);
-  background: var(--c-press-bg);
-  color: var(--c-press-text);
+  box-shadow: 0 6px 14px rgba(0, 110, 253, 0.35);
 }
 
 .frame-learn .frame-body { padding: 36px 32px 44px; }
@@ -109,9 +108,6 @@
   filter: drop-shadow(0 2px 0 #b87500) drop-shadow(0 0 8px rgba(255, 165, 2, 0.4));
 }
 .learn-chip-count { font-size: 13px; font-weight: 700; color: var(--c-text-muted); }
-.learn-strip-actions { display: flex; gap: 10px; }
-.learn-resume,
-.learn-skip { padding: 8px 16px; font-size: 13px; border-radius: 9px; }
 
 .learn-grid {
   display: grid;

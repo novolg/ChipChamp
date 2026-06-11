@@ -36,7 +36,6 @@ export function LearningPathHome() {
   const doneCount = steps.filter((s) => s.complete).length;
   const total = steps.length;
   const currentIndex = steps.findIndex((s) => s.unlocked && !s.complete);
-  const currentStep = currentIndex >= 0 ? steps[currentIndex].step : null;
 
   return (
     <AppFrame variant="learn" active="learn">
@@ -57,17 +56,6 @@ export function LearningPathHome() {
               </span>
               <span className="learn-chip-count">{doneCount} of {total} chips earned</span>
             </div>
-          </div>
-          <div className="learn-strip-actions">
-            <button
-              className="btn btn-orange learn-resume"
-              onClick={() => (currentStep ? open(currentStep) : go({ name: 'free' }))}
-            >
-              {currentStep ? `RESUME → ${cleanTitle(currentStep.title).toUpperCase()}` : 'PATH COMPLETE → PLAY'}
-            </button>
-            <button className="btn btn-dark learn-skip" onClick={() => go({ name: 'free' })}>
-              SKIP TO FREE PLAY
-            </button>
           </div>
         </div>
 
