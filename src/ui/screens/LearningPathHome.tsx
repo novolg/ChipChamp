@@ -13,6 +13,14 @@ const TYPE_LABEL: Record<LearningStep['type'], string> = {
   freePlay: 'PLAY',
 };
 
+/** Decorative suit watermark per step type. */
+const TYPE_GLYPH: Record<LearningStep['type'], string> = {
+  lesson: '♠',
+  quiz: '♦',
+  practice: '♣',
+  freePlay: '♥',
+};
+
 const cleanTitle = (t: string) => t.replace(/^(Learn|Quiz|Practice|Play): /, '');
 
 export function LearningPathHome() {
@@ -46,14 +54,19 @@ export function LearningPathHome() {
             const lockedCaption =
               i === currentIndex + 1 ? `FINISH STEP ${currentIndex + 1} TO UNLOCK` : 'LOCKED';
             return (
-              <div key={step.id} className={`tile tile-${state}`}>
+              <div
+                key={step.id}
+                className={`tile tile-${state}`}
+                style={{ animationDelay: `${i * 0.05}s` }}
+              >
+                <span className="tile-glyph" aria-hidden="true">{TYPE_GLYPH[step.type]}</span>
                 <div className="tile-head">
                   <span className={`tile-type tile-type-${state}`}>{TYPE_LABEL[step.type]}</span>
                   <span className="tile-num">{complete ? '✓' : i + 1}</span>
                 </div>
                 <div className="tile-title">{cleanTitle(step.title)}</div>
                 {state === 'active' && (
-                  <button className="btn btn-blue tile-btn" onClick={() => open(step)}>START</button>
+                  <button className="btn btn-blue tile-btn btn-pulse" onClick={() => open(step)}>START</button>
                 )}
                 {state === 'complete' && (
                   <button className="btn btn-outline-green tile-btn" onClick={() => open(step)}>REVIEW</button>

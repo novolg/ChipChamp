@@ -25,6 +25,7 @@ export const LESSONS: Lesson[] = [
         markdown:
           'The hand plays over four betting rounds:\n\n1. **Preflop** — after the two hole cards are dealt.\n2. **Flop** — three community cards.\n3. **Turn** — a fourth community card.\n4. **River** — the fifth and final card.\n\nIf two or more players remain after the river, there is a **showdown** and the best hand wins the pot.',
       },
+      { kind: 'streetTimeline' },
       {
         kind: 'callout',
         tone: 'tip',
@@ -55,6 +56,17 @@ export const LESSONS: Lesson[] = [
         caption: 'Full house — three of a kind plus a pair (“nines full of fives”).',
       },
       {
+        kind: 'tapQuiz',
+        prompt: 'Showdown — tap the winning hand.',
+        options: [
+          { cards: [c(9, 'c'), c(8, 'd'), c(7, 'h'), c(6, 's'), c(5, 'c')], label: 'Straight, nine high' },
+          { cards: [c(14, 's'), c(11, 's'), c(9, 's'), c(5, 's'), c(2, 's')], label: 'Flush, ace high' },
+        ],
+        correctIndex: 1,
+        explanation:
+          'A flush beats a straight — five cards of one suit sit a full rung above five in a row. Check the ladder above.',
+      },
+      {
         kind: 'callout',
         tone: 'warning',
         text: 'A common beginner mistake: an Ace can make the lowest straight (A-2-3-4-5, the “wheel”), where it counts as low. In that straight the 5 is the high card.',
@@ -72,6 +84,7 @@ export const LESSONS: Lesson[] = [
         markdown:
           '**Position** is where you sit relative to the button. Acting *later* in a betting round is a big advantage: you see what everyone else does before you decide.',
       },
+      { kind: 'positionDiagram' },
       {
         kind: 'text',
         markdown:
@@ -100,6 +113,7 @@ export const LESSONS: Lesson[] = [
         markdown:
           'If the pot is **$80** and it costs **$20** to call, you are risking 20 to win 100 (the 80 already there plus your 20). That is `20 / 100 = 20%`. So if your hand wins **more than 20%** of the time, calling makes money in the long run.',
       },
+      { kind: 'potOddsWidget' },
       {
         kind: 'text',
         markdown:

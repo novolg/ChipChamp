@@ -640,6 +640,290 @@
   color: var(--c-text-2);
 }
 
+/* ============================================================
+   Motion & juice — deal-ins, flips, bubbles, win celebration.
+   ============================================================ */
+
+/* Hero hole cards rise in from the felt, slightly staggered. */
+.hero-cards .pcard {
+  animation: deal-rise 0.5s cubic-bezier(0.18, 0.9, 0.3, 1.15) backwards;
+}
+.hero-cards .pcard:nth-child(2) {
+  animation-delay: 0.12s;
+}
+@keyframes deal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(46px) scale(0.7);
+  }
+}
+
+/* Bot card backs drop in at the start of each hand. */
+.botseat-cards .botseat-back,
+.botseat-cards .pcard {
+  animation: deal-drop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1.1) backwards;
+}
+.botseat-cards .botseat-back-r,
+.botseat-cards .pcard:nth-child(2) {
+  animation-delay: 0.1s;
+}
+@keyframes deal-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.85);
+  }
+}
+
+/* Community cards flip onto the felt (stagger set inline per card). */
+.felt-cards .pcard {
+  animation: flip-in 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+@keyframes flip-in {
+  0% {
+    opacity: 0;
+    transform: perspective(600px) rotateY(85deg) translateY(8px);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(600px) rotateY(0deg);
+  }
+}
+
+/* Winning cards pulse at showdown (outranks the deal/flip animation rules). */
+.felt-cards .pcard.pcard-highlight,
+.hero-cards .pcard.pcard-highlight,
+.botseat-cards .pcard.pcard-highlight {
+  animation: win-card 0.9s ease-in-out infinite alternate;
+}
+@keyframes win-card {
+  from { transform: translateY(0); }
+  to { transform: translateY(-4px); }
+}
+
+/* Street pill and pot chips pop when they change (keyed remounts). */
+.felt-street {
+  animation: pop-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+}
+.felt-pot-chips {
+  animation: pot-bump 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes pot-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* Bet pills pop in on every amount change (keyed remounts). */
+.chips {
+  animation: pop-in 0.25s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+}
+
+/* Faint brand watermark on the felt. */
+.felt-watermark {
+  position: absolute;
+  left: 50%;
+  bottom: 42px;
+  transform: translateX(-50%);
+  width: 220px;
+  opacity: 0.06;
+  filter: grayscale(1) brightness(3);
+  pointer-events: none;
+}
+
+/* ---- Action bubbles: each seat's last action this street ---- */
+.seat-bubble {
+  position: absolute;
+  right: -10px;
+  top: 2px;
+  z-index: 3;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  color: #fff;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 6px 14px rgba(0, 0, 0, 0.35);
+  animation: bubble-pop 0.3s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+}
+.seat-bubble-red { background: var(--c-red-grad); }
+.seat-bubble-blue { background: var(--c-blue-grad); }
+.seat-bubble-orange { background: var(--c-orange-grad); color: var(--c-press-text); }
+@keyframes bubble-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4) translateY(8px);
+  }
+}
+
+/* Hero's bubble hangs off the right edge of the name plate. */
+.hero-plate {
+  position: relative;
+}
+.hero-bubble {
+  right: -14px;
+  top: 50%;
+  transform: translate(100%, -50%);
+  animation: hero-bubble-pop 0.3s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+}
+@keyframes hero-bubble-pop {
+  from {
+    opacity: 0;
+    transform: translate(100%, -50%) scale(0.4);
+  }
+}
+
+/* Thinking bubble: three bouncing dots while a bot decides. */
+.seat-bubble-think {
+  background: var(--c-dark-grad);
+  border: 1px solid var(--c-border-2);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 7px 10px;
+}
+.seat-bubble-think i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-text-2);
+  animation: think-dot 1s ease-in-out infinite;
+}
+.seat-bubble-think i:nth-child(2) { animation-delay: 0.15s; }
+.seat-bubble-think i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes think-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Folded seats drop their cards and desaturate. */
+.botseat-folded {
+  filter: grayscale(0.7);
+}
+.botseat-folded .botseat-cards {
+  transform: translateX(-50%) translateY(10px);
+  opacity: 0;
+  transition: opacity 0.35s, transform 0.35s;
+}
+.botseat,
+.botseat .botseat-cards {
+  transition: opacity 0.3s, filter 0.3s;
+}
+
+/* ---- Win celebration overlay ---- */
+.win-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.win-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 18px 44px 20px;
+  border-radius: var(--r-panel);
+  background: var(--c-dark-grad);
+  border: 2px solid var(--c-blue);
+  box-shadow: 0 6px 0 var(--c-blue-edge), 0 0 50px rgba(0, 110, 253, 0.4),
+    0 20px 50px rgba(0, 0, 0, 0.5);
+  animation: win-pop 0.55s cubic-bezier(0.2, 1.45, 0.35, 1) backwards;
+  animation-delay: 0.25s;
+}
+.win-banner-hero {
+  border-color: var(--c-orange-hi);
+  background: linear-gradient(180deg, #2c2410 0%, #1d1a0e 100%);
+  box-shadow: 0 6px 0 var(--c-orange-edge), 0 0 60px rgba(255, 209, 102, 0.45),
+    0 20px 50px rgba(0, 0, 0, 0.5);
+}
+@keyframes win-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) translateY(24px);
+  }
+  70% {
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.win-title {
+  font-size: 30px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 1px;
+  line-height: 1.1;
+}
+.win-banner-hero .win-title {
+  color: var(--c-orange-hi);
+  text-shadow: 0 0 24px rgba(255, 209, 102, 0.6);
+}
+.win-amount {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--c-green);
+}
+.win-hand {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+/* ---- Control hover states (the bar should feel alive) ---- */
+.bet-preset {
+  transition: color 0.12s, background 0.12s, transform 0.1s;
+}
+.bet-preset:hover:not(:disabled):not(.bet-preset-active) {
+  color: var(--c-text);
+  transform: translateY(-1px);
+}
+.bet-step {
+  transition: color 0.12s, background 0.12s;
+}
+.bet-step:hover:not(:disabled) {
+  color: var(--c-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.bet-slider input {
+  cursor: grab;
+}
+.bet-slider input:active {
+  cursor: grabbing;
+}
+.bet-slider-knob {
+  transition: box-shadow 0.15s;
+}
+.bet-slider:hover .bet-slider-knob {
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 0 22px rgba(255, 165, 2, 0.8);
+}
+
+/* Waiting line gets a soft breathing fade instead of sitting dead. */
+.play-wait {
+  animation: wait-breathe 1.8s ease-in-out infinite;
+}
+@keyframes wait-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
 /* ---- Responsive: scale the fixed-width felt down on narrow viewports ---- */
 @media (max-width: 1080px) {
   .play-grid { grid-template-columns: 1fr; }

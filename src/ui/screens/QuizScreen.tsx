@@ -1,16 +1,23 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
 import { AppFrame } from '../components/AppFrame';
 import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
+import { Confetti } from '../components/Confetti';
+import { useCountUp } from '../hooks/useCountUp';
 
+/** One-question-at-a-time quiz with instant feedback, progress dots and a
+ *  star-rated result. Score is recorded once, when the last question is done. */
 export function QuizScreen({ quizId }: { quizId: string }) {
   const go = useNavStore((s) => s.go);
   const record = useProgressStore((s) => s.record);
   const quiz = QUIZZES_BY_ID[quizId];
 
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [results, setResults] = useState<boolean[]>([]);
+  const [finished, setFinished] = useState(false);
+  const recorded = useRef(false);
 
   if (!quiz) {
     return (
@@ -20,15 +27,41 @@ export function QuizScreen({ quizId }: { quizId: string }) {
     );
   }
 
-  const correctCount = quiz.questions.filter((q) => answers[q.id] === q.correctOptionId).length;
-  const score = correctCount / quiz.questions.length;
+  const total = quiz.questions.length;
+  const q = quiz.questions[index];
+  const correctCount = results.filter(Boolean).length;
+  const score = correctCount / total;
   const passed = score >= quiz.passThreshold;
-  const allAnswered = quiz.questions.every((q) => answers[q.id]);
+  const isLast = index === total - 1;
 
-  const submit = () => {
-    record({ type: 'quizAttempted', quizId, score });
-    setSubmitted(true);
+  const pick = (optId: string) => {
+    if (picked) return;
+    setPicked(optId);
+    setResults((r) => [...r, optId === q.correctOptionId]);
   };
+
+  const next = () => {
+    if (!isLast) {
+      setIndex((i) => i + 1);
+      setPicked(null);
+      return;
+    }
+    if (!recorded.current) {
+      recorded.current = true;
+      record({ type: 'quizAttempted', quizId, score });
+    }
+    setFinished(true);
+  };
+
+  const retry = () => {
+    setIndex(0);
+    setPicked(null);
+    setResults([]);
+    setFinished(false);
+    recorded.current = false;
+  };
+
+  const stars = score === 1 ? 3 : passed ? 2 : 1;
 
   return (
     <AppFrame variant="learn" active="learn">
@@ -36,27 +69,36 @@ export function QuizScreen({ quizId }: { quizId: string }) {
       <button className="link-back" onClick={() => go({ name: 'home' })}>← Path</button>
       <h2>{quiz.title}</h2>
 
-      {quiz.questions.map((q, qi) => {
-        const chosen = answers[q.id];
-        return (
-          <div key={q.id} className="quiz-q">
-            <p className="quiz-prompt">{qi + 1}. {q.prompt}</p>
+      {!finished ? (
+        <>
+          <div className="quiz-progress">
+            <span className="quiz-progress-count">QUESTION {index + 1} / {total}</span>
+            <div className="quiz-dots" aria-hidden="true">
+              {quiz.questions.map((_, i) => {
+                let cls = 'quiz-dot';
+                if (i < results.length) cls += results[i] ? ' quiz-dot-right' : ' quiz-dot-wrong';
+                else if (i === index) cls += ' quiz-dot-current';
+                return <span key={i} className={cls} />;
+              })}
+            </div>
+            <div className="quiz-track">
+              <span className="quiz-track-fill" style={{ width: `${(results.length / total) * 100}%` }} />
+            </div>
+          </div>
+
+          <div className="quiz-q quiz-q-card" key={q.id}>
+            <p className="quiz-prompt">{q.prompt}</p>
             <div className="quiz-options">
               {q.options.map((opt, oi) => {
-                const isChosen = chosen === opt.id;
+                const isChosen = picked === opt.id;
                 const isCorrect = opt.id === q.correctOptionId;
                 let cls = 'quiz-option';
-                if (submitted) {
+                if (picked) {
                   if (isCorrect) cls += ' quiz-option-correct';
                   else if (isChosen) cls += ' quiz-option-wrong';
-                } else if (isChosen) cls += ' quiz-option-chosen';
+                }
                 return (
-                  <button
-                    key={opt.id}
-                    className={cls}
-                    disabled={submitted}
-                    onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt.id }))}
-                  >
+                  <button key={opt.id} className={cls} disabled={!!picked} onClick={() => pick(opt.id)}>
                     <span className="quiz-option-key" aria-hidden="true">
                       {String.fromCharCode(65 + oi)}
                     </span>
@@ -65,32 +107,72 @@ export function QuizScreen({ quizId }: { quizId: string }) {
                 );
               })}
             </div>
-            {submitted && <p className="quiz-explain">{q.explanation}</p>}
-          </div>
-        );
-      })}
-
-      {!submitted ? (
-        <button className="btn btn-primary" disabled={!allAnswered} onClick={submit}>
-          Submit answers
-        </button>
-      ) : (
-        <div className={`quiz-result ${passed ? 'quiz-pass' : 'quiz-fail'}`}>
-          <p className="quiz-result-head">{passed ? 'Passed' : 'Not yet'}</p>
-          <p>
-            You scored {correctCount}/{quiz.questions.length} ({Math.round(score * 100)}%).{' '}
-            {passed ? 'Nice work.' : `You need ${Math.round(quiz.passThreshold * 100)}% to pass.`}
-          </p>
-          <div className="quiz-actions">
-            {passed ? (
-              <button className="btn btn-primary" onClick={() => go({ name: 'home' })}>Continue</button>
-            ) : (
-              <button className="btn" onClick={() => { setSubmitted(false); setAnswers({}); }}>Try again</button>
+            {picked && (
+              <div className={`quiz-feedback ${picked === q.correctOptionId ? 'quiz-feedback-right' : 'quiz-feedback-wrong'}`}>
+                <span className="quiz-feedback-head">
+                  {picked === q.correctOptionId ? '✓ Correct' : '✗ Not quite'}
+                </span>
+                <p className="quiz-explain">{q.explanation}</p>
+                <button className="btn btn-blue quiz-next" onClick={next}>
+                  {isLast ? 'SEE RESULT' : 'NEXT QUESTION'}
+                </button>
+              </div>
             )}
           </div>
-        </div>
+        </>
+      ) : (
+        <QuizResult
+          passed={passed}
+          stars={stars}
+          score={score}
+          correctCount={correctCount}
+          total={total}
+          passThreshold={quiz.passThreshold}
+          onContinue={() => go({ name: 'home' })}
+          onRetry={retry}
+        />
       )}
     </div>
     </AppFrame>
+  );
+}
+
+interface QuizResultProps {
+  passed: boolean;
+  stars: number;
+  score: number;
+  correctCount: number;
+  total: number;
+  passThreshold: number;
+  onContinue: () => void;
+  onRetry: () => void;
+}
+
+function QuizResult({ passed, stars, score, correctCount, total, passThreshold, onContinue, onRetry }: QuizResultProps) {
+  const shownPct = useCountUp(Math.round(score * 100), 700);
+  return (
+    <div className={`quiz-result quiz-result-big ${passed ? 'quiz-pass' : 'quiz-fail'}`}>
+      {passed && <Confetti />}
+      <div className="quiz-stars" aria-label={`${stars} of 3 stars`}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={`quiz-star${i < stars ? ' quiz-star-lit' : ''}`} style={{ animationDelay: `${0.15 + i * 0.18}s` }}>
+            ★
+          </span>
+        ))}
+      </div>
+      <p className="quiz-result-head">{passed ? 'Passed' : 'Not yet'}</p>
+      <p className="quiz-result-pct">{shownPct}%</p>
+      <p className="quiz-result-detail">
+        {correctCount} of {total} correct.{' '}
+        {passed ? 'Nice work.' : `You need ${Math.round(passThreshold * 100)}% to pass.`}
+      </p>
+      <div className="quiz-actions">
+        {passed ? (
+          <button className="btn btn-blue" onClick={onContinue}>CONTINUE</button>
+        ) : (
+          <button className="btn btn-orange" onClick={onRetry}>TRY AGAIN</button>
+        )}
+      </div>
+    </div>
   );
 }

@@ -12,12 +12,15 @@ interface CardProps {
   highlight?: boolean;
   /** hero = 92×128 fanned hole cards; board = 56×78 community; sm/md for tutorials. */
   size?: 'sm' | 'md' | 'board' | 'hero';
+  /** Stagger for the deal/flip-in animation, in seconds. */
+  dealDelay?: number;
 }
 
-export function PlayingCard({ card, faceDown, highlight, size = 'md' }: CardProps) {
+export function PlayingCard({ card, faceDown, highlight, size = 'md', dealDelay }: CardProps) {
+  const style = dealDelay ? { animationDelay: `${dealDelay}s` } : undefined;
   if (faceDown || !card) {
     return (
-      <div className={`pcard pcard-${size} pcard-back`} aria-label="face-down card">
+      <div className={`pcard pcard-${size} pcard-back`} style={style} aria-label="face-down card">
         <img src="/assets/card-back.png" alt="" />
       </div>
     );
@@ -26,6 +29,7 @@ export function PlayingCard({ card, faceDown, highlight, size = 'md' }: CardProp
   return (
     <div
       className={`pcard pcard-${size} ${red ? 'pcard-red' : 'pcard-ink'} ${highlight ? 'pcard-highlight' : ''}`}
+      style={style}
       aria-label={`${rankLabel(card.rank)} of ${card.suit}`}
     >
       <span className="pcard-rank">{rankLabel(card.rank)}</span>

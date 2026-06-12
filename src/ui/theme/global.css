@@ -67,7 +67,8 @@ h3 {
     filter 0.08s;
 }
 .btn:hover:not(:disabled) {
-  filter: brightness(1.06);
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 .btn:active:not(:disabled) {
   transform: translateY(2px);
@@ -119,4 +120,53 @@ h3 {
 .btn-primary {
   background: var(--c-blue-grad);
   box-shadow: var(--sh-btn-blue);
+}
+
+/* Attention pulse for the single "do this next" button on a screen. */
+.btn-pulse:not(:disabled) {
+  animation: btn-pulse 2s ease-in-out infinite;
+}
+@keyframes btn-pulse {
+  0%, 100% { box-shadow: 0 10px 22px rgba(0, 110, 253, 0.3); }
+  50% { box-shadow: 0 10px 30px rgba(0, 110, 253, 0.6), 0 0 0 4px rgba(0, 110, 253, 0.18); }
+}
+
+/* ---- Keyboard focus ---- */
+:focus-visible {
+  outline: 2px solid var(--c-blue-text);
+  outline-offset: 2px;
+}
+
+/* ---- Confetti burst (parent must be position: relative or fixed) ---- */
+.confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.confetti-piece {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 13px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall 1.5s ease-in forwards;
+}
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--drift, 0px), 380px) rotate(var(--spin, 320deg)); }
+}
+
+/* ---- Reduced motion: keep state changes, drop the theatrics ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

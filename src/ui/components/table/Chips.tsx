@@ -5,12 +5,13 @@ interface ChipsProps {
   label?: string;
 }
 
-/** A bet/commit pill: a couple of overlapping poker-chip images + a mono amount. */
+/** A bet/commit pill: a couple of overlapping poker-chip images + a mono amount.
+ *  Keyed on the amount so each bet change replays the pop-in animation. */
 export function Chips({ amount, tone = 'blue', label }: ChipsProps) {
   if (amount <= 0) return null;
   const chip = `/assets/chip-${tone}.png`;
   return (
-    <div className={`chips chips-${tone}`} title={label}>
+    <div key={amount} className={`chips chips-${tone}`} title={label}>
       <span className="chips-stack" aria-hidden="true">
         <img src={chip} alt="" className="chips-img chips-img-0" />
         <img src={chip} alt="" className="chips-img chips-img-1" />

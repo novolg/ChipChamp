@@ -5,6 +5,31 @@ import { AppFrame } from '../components/AppFrame';
 import { Table } from '../components/table/Table';
 import { ActionControls } from '../components/controls/ActionControls';
 import { CoachingRail } from '../components/coaching/CoachingRail';
+import { Confetti } from '../components/Confetti';
+import type { GameState } from '../../engine/types';
+
+interface WinInfo {
+  name: string;
+  amount: number;
+  hand?: string;
+  heroWon: boolean;
+}
+
+/** Parse the engine's "<name> wins <amount> [with <hand>|uncontested]" notes. */
+function winInfo(game: GameState): WinInfo | null {
+  const wins = game.log
+    .map((e) => e.note?.match(/^(.+?) wins (\d+)(?: with (.+))?/))
+    .filter((m): m is RegExpMatchArray => m != null);
+  if (wins.length === 0) return null;
+  const heroWin = wins.find((m) => m[1] === 'You');
+  const top = heroWin ?? wins[0];
+  return {
+    name: top[1],
+    amount: wins.filter((m) => m[1] === top[1]).reduce((s, m) => s + Number(m[2]), 0),
+    hand: top[3],
+    heroWon: Boolean(heroWin),
+  };
+}
 
 export function FreePlayScreen() {
   const game = useGameStore((s) => s.game);
@@ -50,6 +75,7 @@ export function FreePlayScreen() {
   const handOver = game.phase === 'handComplete';
   const canContinue = game.seats.filter((s) => s.stack > 0).length >= 2;
   const heroBusted = hero ? hero.stack === 0 && !canContinue : false;
+  const win = handOver ? winInfo(game) : null;
 
   const headerExtra = `BLINDS ${game.smallBlind}/${game.bigBlind} · HAND ${game.handNumber}`;
 
@@ -57,15 +83,18 @@ export function FreePlayScreen() {
     <AppFrame variant="table" active="free" headerExtra={headerExtra}>
       <div className="play-grid">
         <div className="play-main">
-          <Table game={game} />
-
-          {handOver && (
-            <div className="hand-result">
-              {game.log
-                .filter((e) => e.note && /wins/.test(e.note))
-                .map((e, i) => <span key={i}>{e.note}</span>)}
-            </div>
-          )}
+          <Table game={game} thinkingSeatId={botThinking ? game.toActSeatId : null}>
+            {win && (
+              <div className="win-overlay" key={game.handNumber}>
+                {win.heroWon && <Confetti count={32} />}
+                <div className={`win-banner${win.heroWon ? ' win-banner-hero' : ''}`}>
+                  <span className="win-title">{win.heroWon ? 'YOU WIN' : `${win.name.toUpperCase()} WINS`}</span>
+                  <span className="win-amount">+{win.amount.toLocaleString()}</span>
+                  {win.hand && <span className="win-hand">{win.hand}</span>}
+                </div>
+              </div>
+            )}
+          </Table>
 
           <div className="play-controls">
             {heroToAct && hero && (
@@ -75,7 +104,7 @@ export function FreePlayScreen() {
               <p className="play-wait">{botThinking ? 'Opponent is thinking…' : 'Waiting…'}</p>
             )}
             {handOver && canContinue && (
-              <button className="btn btn-blue" onClick={dealHand}>DEAL NEXT HAND</button>
+              <button className="btn btn-blue btn-pulse" onClick={dealHand}>DEAL NEXT HAND</button>
             )}
             {handOver && !canContinue && (
               <div className="game-over">

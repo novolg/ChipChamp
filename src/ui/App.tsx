@@ -6,6 +6,7 @@ import { LessonScreen } from './screens/LessonScreen';
 import { QuizScreen } from './screens/QuizScreen';
 import { PracticeHandScreen } from './screens/PracticeHandScreen';
 import './components/table/table.css';
+import './components/lesson/lesson.css';
 import './screens/screens.css';
 
 export function App() {

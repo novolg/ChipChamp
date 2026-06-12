@@ -7,6 +7,7 @@ import { buildScriptedGame } from '../../tutorial/practice';
 import type { Action } from '../../engine/types';
 import { Table } from '../components/table/Table';
 import { ActionControls } from '../components/controls/ActionControls';
+import { Confetti } from '../components/Confetti';
 
 interface Feedback {
   correct: boolean;
@@ -70,6 +71,7 @@ export function PracticeHandScreen({ handId }: { handId: string }) {
 
       {feedback && (
         <div className={`practice-feedback ${feedback.correct ? 'fb-right' : 'fb-wrong'}`}>
+          {feedback.correct && <Confetti count={18} />}
           <p className="fb-head">{feedback.correct ? '✓ Nicely played' : '✗ Not quite'}</p>
           <p>{feedback.text}</p>
           {feedback.correct ? (

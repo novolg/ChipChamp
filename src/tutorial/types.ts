@@ -6,7 +6,21 @@ export type LessonBlock =
   | { kind: 'text'; markdown: string }
   | { kind: 'handRankTable' }
   | { kind: 'cardExample'; cards: Card[]; caption: string }
-  | { kind: 'callout'; tone: 'tip' | 'warning'; text: string };
+  | { kind: 'callout'; tone: 'tip' | 'warning'; text: string }
+  /** Interactive step-through of one example hand, preflop → showdown. */
+  | { kind: 'streetTimeline' }
+  /** Clickable 6-max table diagram explaining each position. */
+  | { kind: 'positionDiagram' }
+  /** Live pot-odds calculator with pot/call/outs sliders. */
+  | { kind: 'potOddsWidget' }
+  /** Inline check: tap the winning hand among card groups. */
+  | {
+      kind: 'tapQuiz';
+      prompt: string;
+      options: { cards: Card[]; label: string }[];
+      correctIndex: number;
+      explanation: string;
+    };
 
 export interface Lesson {
   id: string;

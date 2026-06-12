@@ -2,6 +2,13 @@ import type { Card, Seat as SeatType } from '../../../engine/types';
 import { PlayingCard } from './Card';
 import { Chips } from './Chips';
 
+export interface ActionBubble {
+  text: string;
+  tone: 'red' | 'blue' | 'orange';
+  /** Log index of the action — keying on it replays the pop animation. */
+  seq: number;
+}
+
 interface SeatProps {
   seat: SeatType;
   isButton: boolean;
@@ -10,6 +17,10 @@ interface SeatProps {
   revealCards: boolean;
   blindLabel?: 'SB' | 'BB';
   highlightKeys?: Set<string>;
+  /** This seat's most recent action on the current street. */
+  bubble?: ActionBubble;
+  /** Show the animated "thinking" bubble (bot deciding). */
+  thinking?: boolean;
 }
 
 const key = (c: Card) => `${c.rank}${c.suit}`;
@@ -23,7 +34,7 @@ function avatarFor(name: string): string {
 }
 
 /** A bot seat: fanned card backs (or revealed cards), avatar, name plate and bet pill. */
-export function Seat({ seat, isButton, isToAct, revealCards, blindLabel, highlightKeys }: SeatProps) {
+export function Seat({ seat, isButton, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking }: SeatProps) {
   const folded = seat.status === 'folded';
   const allIn = seat.status === 'allin';
   const showCards = revealCards && seat.holeCards.length === 2;
@@ -49,6 +60,13 @@ export function Seat({ seat, isButton, isToAct, revealCards, blindLabel, highlig
           )}
         </div>
         <img src={avatarFor(seat.name)} alt="" className="botseat-avatar" />
+        {thinking ? (
+          <span className="seat-bubble seat-bubble-think" aria-label={`${seat.name} is thinking`}>
+            <i /><i /><i />
+          </span>
+        ) : bubble ? (
+          <span key={bubble.seq} className={`seat-bubble seat-bubble-${bubble.tone}`}>{bubble.text}</span>
+        ) : null}
         <div className="botseat-plate">
           <span className="botseat-name">{seat.name}</span>
           {isButton && <span className="badge badge-button" title="Dealer">D</span>}
