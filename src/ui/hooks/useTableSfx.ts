@@ -86,8 +86,14 @@ export function useTableSfx(game: GameState | null): void {
       return;
     }
 
-    // Community cards landing (flop = 3, turn/river = 1).
-    if (snap.boardLen > prev.boardLen) flicks(snap.boardLen - prev.boardLen);
+    // Community cards landing (flop = 3, turn/river = 1). The previous street's
+    // bet pills also sweep into the pot and land ~420ms later (Table LAND_MS) —
+    // clink them on that beat so the eye and ear agree the chips arrived.
+    if (snap.boardLen > prev.boardLen) {
+      flicks(snap.boardLen - prev.boardLen);
+      schedule('chipClink', 420);
+      schedule('chipClink', 470);
+    }
 
     // Each new log entry's action gets its verb cue — EXCEPT the human's own
     // actions, which ActionControls already played synchronously on press.

@@ -23,6 +23,10 @@ interface TableProps {
 const key = (c: Card) => `${c.rank}${c.suit}`;
 const POSITIONS = ['left', 'center', 'right'] as const;
 
+/** When the street-end chip sweep lands on the pot. Shared by the CSS collect
+ *  animation (--collect-ms) and the JS pot-punch/clink timing so they agree. */
+const LAND_MS = 420;
+
 /** Felt coordinates for the dealer disc, one per button slot (852x600 table area). */
 const DEALER_XY = {
   left: { x: 212, y: 196 },
@@ -133,6 +137,10 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
   const prevStreet = useRef(game.street);
   const committedRef = useRef<Record<string, number>>({});
   const [ghosts, setGhosts] = useState<{ pos: string; amount: number }[]>([]);
+  // The pot "punch" is keyed on this, not the raw pot value, so it fires when
+  // the swept chips visually LAND (LAND_MS) rather than when the engine wrote
+  // the pot at street change.
+  const [bumpKey, setBumpKey] = useState(0);
   useEffect(() => {
     if (prevStreet.current === game.street) return;
     const g = Object.entries(committedRef.current)
@@ -141,8 +149,9 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
     prevStreet.current = game.street;
     if (g.length) {
       setGhosts(g);
-      const t = setTimeout(() => setGhosts([]), 500);
-      return () => clearTimeout(t);
+      const land = setTimeout(() => setBumpKey((k) => k + 1), LAND_MS);
+      const clear = setTimeout(() => setGhosts([]), 520);
+      return () => { clearTimeout(land); clearTimeout(clear); };
     }
   }, [game.street]);
   useEffect(() => {
@@ -156,6 +165,24 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
     committedRef.current = m;
   });
 
+  // Fresh all-in shoves → one-shot felt reaction (rim flash + impulse punch).
+  // Keyed on the count of all-in seats so each NEW shove replays once; the
+  // class is restarted imperatively (reflow) so Board/pot don't remount.
+  const allInCount = game.seats.filter((s) => s.status === 'allin').length;
+  const prevAllIn = useRef(allInCount);
+  const feltRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (allInCount > prevAllIn.current) {
+      const el = feltRef.current;
+      if (el) {
+        el.classList.remove('table-felt-shove');
+        void el.offsetWidth; // force reflow to restart the animation
+        el.classList.add('table-felt-shove');
+      }
+    }
+    prevAllIn.current = allInCount;
+  }, [allInCount]);
+
   const blindOf = (id: number): 'SB' | 'BB' | undefined =>
     id === sb ? 'SB' : id === bb ? 'BB' : undefined;
 
@@ -165,12 +192,12 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
   const heroActing = hero != null && hero.id === game.toActSeatId && game.phase === 'betting';
 
   return (
-    <div className="table">
+    <div className="table" style={{ ['--collect-ms' as string]: `${LAND_MS}ms` }}>
       <div className="table-cone" aria-hidden="true" />
 
-      <div className="table-felt">
+      <div className="table-felt" ref={feltRef}>
         <div className="table-felt-noise" aria-hidden="true" />
-        <Board board={game.board} pot={pot} street={game.street} highlightKeys={highlight} />
+        <Board board={game.board} pot={pot} street={game.street} highlightKeys={highlight} bumpKey={bumpKey} />
       </div>
 
       <span

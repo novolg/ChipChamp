@@ -2,6 +2,7 @@ import type { ActionType, Card, Seat as SeatType } from '../../../engine/types';
 import { PlayingCard } from './Card';
 import { BotFace, botIdFor, type BotId, type Emotion } from './BotFace';
 import { useCountUp } from '../../hooks/useCountUp';
+import { BOT_DELAY_MS } from '../../store/gameStore';
 
 export interface ActionBubble {
   text: string;
@@ -73,7 +74,17 @@ export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bu
           <div className="botseat-avatar">
             <BotFace bot={bot} emotion={emotion} seatId={seat.id} name={seat.name} emotionSeq={emotionSeq} />
           </div>
-          <i className="acting-ring" aria-hidden="true" />
+          {/* Timebank: full ring when idle; drains over BOT_DELAY_MS while
+              acting, reddening near empty. pathLength=100 → dash math in %. */}
+          <svg
+            className="acting-ring"
+            viewBox="0 0 52 52"
+            aria-hidden="true"
+            style={{ ['--tb-ms' as string]: `${BOT_DELAY_MS}ms` }}
+          >
+            <circle className="acting-ring-track" cx="26" cy="26" r="22" />
+            <circle className="acting-ring-progress" cx="26" cy="26" r="22" pathLength={100} />
+          </svg>
           <span className="seat-level">{BOT_LEVEL[bot]}</span>
           {emote && <span className="seat-emote">{emote}</span>}
         </span>

@@ -12,8 +12,9 @@ import { BOT_PRESETS, type BotConfig } from '../../bot/botConstants';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-/** Delay before a bot acts, so the human can follow the action. */
-const BOT_DELAY_MS = 750;
+/** Delay before a bot acts, so the human can follow the action. Exported so the
+ *  table's timebank arc can drain over exactly this window. */
+export const BOT_DELAY_MS = 750;
 
 export interface GameStore {
   game: GameState | null;
