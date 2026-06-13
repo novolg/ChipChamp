@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { playSfx } from '../../lib/sound';
 
 interface SeatInfo {
@@ -63,7 +64,7 @@ export function PositionDiagram() {
   const select = (id: string) => {
     if (id === selectedId) return;
     setSelectedId(id);
-    playSfx('click');
+    playSfx('chipClink');
   };
 
   return (
@@ -71,12 +72,16 @@ export function PositionDiagram() {
       <svg viewBox="0 0 420 240" className="posmap-svg" role="group" aria-label="table positions">
         <ellipse cx="210" cy="120" rx="186" ry="104" fill="#18233e" />
         <ellipse cx="210" cy="120" rx="174" ry="92" fill="#142c5c" stroke="rgba(110,160,255,0.35)" strokeWidth="2" />
+        {/* Dashed band travelling clockwise — makes "action moves clockwise" literal. */}
+        <ellipse className="posmap-flow" cx="210" cy="120" rx="174" ry="92"
+          fill="none" stroke="rgba(110,160,255,0.5)" strokeWidth="2"
+          strokeDasharray="4 12" strokeLinecap="round" aria-hidden="true" />
         <text x="210" y="116" textAnchor="middle" className="posmap-felt-label">ACTION MOVES</text>
         <text x="210" y="134" textAnchor="middle" className="posmap-felt-label">CLOCKWISE →</text>
         {SEATS.map((seat) => {
           const active = seat.id === selectedId;
           return (
-            <g
+            <motion.g
               key={seat.id}
               className={`posmap-seat${active ? ' posmap-seat-active' : ''}`}
               onClick={() => select(seat.id)}
@@ -86,6 +91,11 @@ export function PositionDiagram() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') select(seat.id);
               }}
+              // fill-box + center: scale about the seat's own centre (matches the
+              // verified botface.css pattern; absolute viewBox coords would not).
+              style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+              animate={{ scale: active ? 1.12 : 1 }}
+              transition={{ type: 'spring', stiffness: 600, damping: 26, mass: 0.7 }}
             >
               <circle cx={seat.x} cy={seat.y} r="23" fill={TONE_FILL[seat.tone]} opacity={active ? 1 : 0.45} />
               <circle
@@ -99,7 +109,7 @@ export function PositionDiagram() {
               <text x={seat.x} y={seat.y + 4.5} textAnchor="middle" className="posmap-seat-label">
                 {seat.label}
               </text>
-            </g>
+            </motion.g>
           );
         })}
       </svg>
