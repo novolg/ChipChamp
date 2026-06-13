@@ -11,6 +11,7 @@ import { PositionDiagram } from '../components/lesson/PositionDiagram';
 import { PotOddsWidget } from '../components/lesson/PotOddsWidget';
 import { TapQuiz } from '../components/lesson/TapQuiz';
 import { Confetti } from '../components/Confetti';
+import { playSfx } from '../lib/sound';
 import type { Lesson } from '../../tutorial/types';
 
 /** Category → hero banner theming (suit glyph + accent). */
@@ -45,6 +46,7 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
     if (celebrating) return;
     record({ type: 'lessonCompleted', lessonId });
     setCelebrating(true);
+    playSfx('levelUp');
     timerRef.current = setTimeout(() => go({ name: 'home' }), 1500);
   };
 

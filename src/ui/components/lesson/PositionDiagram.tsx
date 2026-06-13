@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { playSfx } from '../../lib/sound';
 
 interface SeatInfo {
   id: string;
@@ -59,6 +60,12 @@ export function PositionDiagram() {
   const [selectedId, setSelectedId] = useState('btn');
   const selected = SEATS.find((s) => s.id === selectedId)!;
 
+  const select = (id: string) => {
+    if (id === selectedId) return;
+    setSelectedId(id);
+    playSfx('click');
+  };
+
   return (
     <div className="posmap">
       <svg viewBox="0 0 420 240" className="posmap-svg" role="group" aria-label="table positions">
@@ -72,12 +79,12 @@ export function PositionDiagram() {
             <g
               key={seat.id}
               className={`posmap-seat${active ? ' posmap-seat-active' : ''}`}
-              onClick={() => setSelectedId(seat.id)}
+              onClick={() => select(seat.id)}
               role="button"
               aria-pressed={active}
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') setSelectedId(seat.id);
+                if (e.key === 'Enter' || e.key === ' ') select(seat.id);
               }}
             >
               <circle cx={seat.x} cy={seat.y} r="23" fill={TONE_FILL[seat.tone]} opacity={active ? 1 : 0.45} />

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Card } from '../../../engine/types';
 import { PlayingCard } from '../table/Card';
+import { playSfx } from '../../lib/sound';
 
 const c = (rank: number, suit: string): Card => ({ rank: rank as Card['rank'], suit: suit as Card['suit'] });
 
@@ -45,6 +46,13 @@ export function StreetTimeline() {
   const key = (card: Card) => `${card.rank}${card.suit}`;
   const lit = (card: Card) => Boolean(s.highlight && WINNING.has(key(card)));
 
+  // Advancing a street deals cards onto the felt; stepping back is a soft click.
+  const goStep = (i: number) => {
+    if (i === step) return;
+    playSfx(i > step ? 'cardDeal' : 'click');
+    setStep(i);
+  };
+
   return (
     <div className="timeline">
       <div className="timeline-pills" role="tablist" aria-label="betting rounds">
@@ -54,7 +62,7 @@ export function StreetTimeline() {
             role="tab"
             aria-selected={i === step}
             className={`timeline-pill${i === step ? ' timeline-pill-active' : ''}${i < step ? ' timeline-pill-done' : ''}`}
-            onClick={() => setStep(i)}
+            onClick={() => goStep(i)}
           >
             {st.label}
           </button>
@@ -84,13 +92,13 @@ export function StreetTimeline() {
       <p className="timeline-text" key={step}>{s.text}</p>
 
       <div className="timeline-nav">
-        <button className="btn btn-dark timeline-btn" disabled={step === 0} onClick={() => setStep(step - 1)}>
+        <button className="btn btn-dark timeline-btn" disabled={step === 0} onClick={() => goStep(step - 1)}>
           ← BACK
         </button>
         <button
           className="btn btn-blue timeline-btn"
           disabled={step === STEPS.length - 1}
-          onClick={() => setStep(step + 1)}
+          onClick={() => goStep(step + 1)}
         >
           NEXT →
         </button>

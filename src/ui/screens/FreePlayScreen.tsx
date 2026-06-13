@@ -7,6 +7,7 @@ import { ActionControls } from '../components/controls/ActionControls';
 import { CoachingRail } from '../components/coaching/CoachingRail';
 import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
+import { useTableSfx } from '../hooks/useTableSfx';
 import type { GameState } from '../../engine/types';
 
 type WinSlot = 'hero' | 'left' | 'center' | 'right';
@@ -61,6 +62,10 @@ export function FreePlayScreen() {
   const dealHand = useGameStore((s) => s.dealHand);
   const playerAction = useGameStore((s) => s.playerAction);
   const record = useProgressStore((s) => s.record);
+
+  // Synthesised table SFX, driven off game-state changes (deals, actions,
+  // streets, payout, your-turn). Observational — no effect on gameplay.
+  useTableSfx(game);
 
   // Start a game once on mount (guard against StrictMode double-invoke).
   useEffect(() => {

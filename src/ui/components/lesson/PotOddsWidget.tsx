@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { playSfx } from '../../lib/sound';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -47,7 +48,7 @@ export function PotOddsWidget() {
               role="tab"
               aria-selected={street === 'flop'}
               className={`podds-seg${street === 'flop' ? ' podds-seg-active' : ''}`}
-              onClick={() => setStreet('flop')}
+              onClick={() => { setStreet('flop'); playSfx('click'); }}
             >
               FLOP (×4)
             </button>
@@ -55,7 +56,7 @@ export function PotOddsWidget() {
               role="tab"
               aria-selected={street === 'turn'}
               className={`podds-seg${street === 'turn' ? ' podds-seg-active' : ''}`}
-              onClick={() => setStreet('turn')}
+              onClick={() => { setStreet('turn'); playSfx('click'); }}
             >
               TURN (×2)
             </button>

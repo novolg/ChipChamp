@@ -6,6 +6,7 @@ import { AppFrame } from '../components/AppFrame';
 import { LEARNING_PATH } from '../../tutorial/content/learningPath';
 import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
 import { isStepComplete, isStepUnlocked } from '../../tutorial/progress/progressReducer';
+import { playSfx } from '../lib/sound';
 import type { LearningStep } from '../../tutorial/types';
 
 const TYPE_LABEL: Record<LearningStep['type'], string> = {
@@ -43,12 +44,18 @@ export function LearningPathHome() {
   const [denyId, setDenyId] = useState<string | null>(null);
 
   const open = (step: LearningStep) => {
+    playSfx('click');
     switch (step.type) {
       case 'lesson': return go({ name: 'lesson', id: step.refId });
       case 'quiz': return go({ name: 'quiz', id: step.refId });
       case 'practice': return go({ name: 'practice', id: step.refId });
       case 'freePlay': return go({ name: 'free' });
     }
+  };
+
+  const denyLocked = (id: string) => {
+    setDenyId(id);
+    playSfx('lock');
   };
 
   const steps = LEARNING_PATH.map((step) => ({
@@ -78,7 +85,7 @@ export function LearningPathHome() {
                 style={{ animationDelay: denying ? `${i * 0.05}s, 0s` : `${i * 0.05}s` }}
                 onMouseMove={locked ? undefined : trackTilt}
                 onMouseLeave={locked ? undefined : resetTilt}
-                onClick={locked ? () => setDenyId(step.id) : undefined}
+                onClick={locked ? () => denyLocked(step.id) : undefined}
                 onAnimationEnd={locked ? () => setDenyId(null) : undefined}
               >
                 <span className="tile-glyph" aria-hidden="true">{TYPE_GLYPH[step.type]}</span>
@@ -93,7 +100,12 @@ export function LearningPathHome() {
                 {state === 'complete' && (
                   <button className="btn btn-outline-green tile-btn" onClick={() => open(step)}>REVIEW</button>
                 )}
-                {state === 'locked' && <div className="tile-lock-cap">{lockedCaption}</div>}
+                {state === 'locked' && (
+                  <div className="tile-lock-cap">
+                    <span className="tile-lock-ico" aria-hidden="true">🔒</span>
+                    {lockedCaption}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -1,10 +1,23 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
 import { AppFrame } from '../components/AppFrame';
 import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
 import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
+import { playSfx } from '../lib/sound';
+import { questionVariants } from '../lib/motion';
+
+/** Trailing run of correct answers — drives the streak badge. */
+function trailingStreak(results: boolean[]): number {
+  let s = 0;
+  for (let i = results.length - 1; i >= 0; i--) {
+    if (results[i]) s++;
+    else break;
+  }
+  return s;
+}
 
 /** One-question-at-a-time quiz with instant feedback, progress dots and a
  *  star-rated result. Score is recorded once, when the last question is done. */
@@ -34,10 +47,14 @@ export function QuizScreen({ quizId }: { quizId: string }) {
   const passed = score >= quiz.passThreshold;
   const isLast = index === total - 1;
 
+  const streak = trailingStreak(results);
+
   const pick = (optId: string) => {
     if (picked) return;
+    const right = optId === q.correctOptionId;
     setPicked(optId);
-    setResults((r) => [...r, optId === q.correctOptionId]);
+    setResults((r) => [...r, right]);
+    playSfx(right ? 'star' : 'lose');
   };
 
   const next = () => {
@@ -72,7 +89,24 @@ export function QuizScreen({ quizId }: { quizId: string }) {
       {!finished ? (
         <>
           <div className="quiz-progress">
-            <span className="quiz-progress-count">QUESTION {index + 1} / {total}</span>
+            <div className="quiz-progress-head">
+              <span className="quiz-progress-count">QUESTION {index + 1} / {total}</span>
+              <AnimatePresence>
+                {streak >= 2 && (
+                  <motion.span
+                    key={streak}
+                    className="quiz-streak"
+                    data-tier={Math.min(streak, 5)}
+                    initial={{ scale: 0.4, opacity: 0, rotate: -8 }}
+                    animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                    exit={{ scale: 0.4, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 520, damping: 16 }}
+                  >
+                    🔥 STREAK ×{streak}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
             <div className="quiz-dots" aria-hidden="true">
               {quiz.questions.map((_, i) => {
                 let cls = 'quiz-dot';
@@ -86,7 +120,15 @@ export function QuizScreen({ quizId }: { quizId: string }) {
             </div>
           </div>
 
-          <div className="quiz-q quiz-q-card" key={q.id}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              className="quiz-q"
+              key={q.id}
+              variants={questionVariants}
+              initial="initial"
+              animate="enter"
+              exit="exit"
+            >
             <p className="quiz-prompt">{q.prompt}</p>
             <div className="quiz-options">
               {q.options.map((opt, oi) => {
@@ -118,7 +160,8 @@ export function QuizScreen({ quizId }: { quizId: string }) {
                 </button>
               </div>
             )}
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </>
       ) : (
         <QuizResult
@@ -150,6 +193,19 @@ interface QuizResultProps {
 
 function QuizResult({ passed, stars, score, correctCount, total, passThreshold, onContinue, onRetry }: QuizResultProps) {
   const shownPct = useCountUp(Math.round(score * 100), 700);
+
+  // Ring each star in as it lights (matching the CSS stagger), then the verdict
+  // sting. Mount-only — props are fixed for the component's life.
+  useEffect(() => {
+    const timers = [
+      ...Array.from({ length: stars }, (_, i) =>
+        setTimeout(() => playSfx('star'), (0.15 + i * 0.18) * 1000),
+      ),
+      setTimeout(() => playSfx(passed ? 'win' : 'lose'), (0.15 + stars * 0.18) * 1000 + 120),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [stars, passed]);
+
   return (
     <div className={`quiz-result quiz-result-big ${passed ? 'quiz-pass' : 'quiz-fail'}`}>
       {passed && <Confetti />}
