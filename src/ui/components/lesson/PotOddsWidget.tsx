@@ -16,10 +16,13 @@ export function PotOddsWidget() {
   const have = Math.min(0.95, (outs * (street === 'flop' ? 4 : 2)) / 100); // rule of 2 & 4
   const goodCall = have >= need;
 
-  // Confirm the verdict flip (CALL↔FOLD) with one tone — not on every drag.
-  const firstRun = useRef(true);
+  // Confirm the verdict flip (CALL↔FOLD) with one tone — fire only when the
+  // verdict actually changes. A previous-value ref (not a skip-first flag) keeps
+  // the dev StrictMode double-invoke silent, mirroring useTableSfx's snapshot guard.
+  const prevGoodCall = useRef(goodCall);
   useEffect(() => {
-    if (firstRun.current) { firstRun.current = false; return; }
+    if (prevGoodCall.current === goodCall) return;
+    prevGoodCall.current = goodCall;
     playSfx(goodCall ? 'win' : 'incorrect');
   }, [goodCall]);
 
@@ -77,7 +80,7 @@ export function PotOddsWidget() {
         <span className="podds-bar-mark" style={{ left: pct(need) }} />
       </div>
       <div className="podds-legend">
-        <span className="podds-legend-have">YOUR EQUITY ≈ {pct(have)}</span>
+        <span className={`podds-legend-have${goodCall ? ' podds-legend-have-good' : ''}`}>YOUR EQUITY ≈ {pct(have)}</span>
         <span className="podds-legend-need">NEEDED {pct(need)}</span>
       </div>
 

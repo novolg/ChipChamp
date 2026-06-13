@@ -844,7 +844,9 @@
   opacity: 0.5;
   animation: coach-gap-pulse 0.6s var(--ease-out) 120ms 1 backwards;
 }
-.coach-bar-gap-good { background: rgba(46, 213, 115, 0.55); }
+/* Surplus band sits over the GREEN +EV fill, so it must be a pale mint to read
+   (plain translucent green would vanish into the fill beneath it). */
+.coach-bar-gap-good { background: rgba(214, 255, 232, 0.95); }
 .coach-bar-gap-short { background: rgba(255, 71, 87, 0.55); }
 @keyframes coach-gap-pulse {
   0% { opacity: 0; }

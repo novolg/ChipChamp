@@ -300,13 +300,16 @@
   letter-spacing: 1px;
 }
 .podds-legend-have { color: var(--c-red); }
+/* Mirror the bar: the equity caption turns green when the call is +EV. */
+.podds-legend-have-good { color: var(--c-green); }
 .podds-legend-need { color: var(--c-orange-hi); }
 .podds-verdict {
   padding: 11px 16px;
   border-radius: var(--r-plate);
   font-weight: 800;
   font-size: 14px;
-  animation: pop-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+  /* Entrance is owned by Framer's AnimatePresence cross-fade (slide+fade); a CSS
+     `animation: pop-in` here would clobber its inline transform — don't add one. */
 }
 .podds-verdict-call {
   background: rgba(46, 213, 115, 0.12);
