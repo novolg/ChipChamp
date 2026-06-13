@@ -7,6 +7,9 @@ import { ActionControls } from '../components/controls/ActionControls';
 import { CoachingRail } from '../components/coaching/CoachingRail';
 import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
+import { useTableSfx, payoutTier } from '../hooks/useTableSfx';
+import { canDealNextHand, heroIsBusted } from '../lib/derive';
+import { playSfx } from '../lib/sound';
 import type { GameState } from '../../engine/types';
 
 type WinSlot = 'hero' | 'left' | 'center' | 'right';
@@ -62,6 +65,10 @@ export function FreePlayScreen() {
   const playerAction = useGameStore((s) => s.playerAction);
   const record = useProgressStore((s) => s.record);
 
+  // Synthesised table SFX, driven off game-state changes (deals, actions,
+  // streets, payout, your-turn). Observational — no effect on gameplay.
+  useTableSfx(game);
+
   // Start a game once on mount (guard against StrictMode double-invoke).
   useEffect(() => {
     if (!useGameStore.getState().game) newGame();
@@ -85,6 +92,15 @@ export function FreePlayScreen() {
     }
   }, [game, record]);
 
+  // One-shot "you're out" sting when the session ends with the hero busted.
+  const bustedRef = useRef(false);
+  useEffect(() => {
+    if (!game) return;
+    const out = game.phase === 'handComplete' && heroIsBusted(game);
+    if (out && !bustedRef.current) { bustedRef.current = true; playSfx('lose'); }
+    if (!out) bustedRef.current = false;
+  }, [game]);
+
   // Derived before the early return so the hook order stays stable; the
   // banner amount rolls up like a slot payout instead of snapping.
   const win = game && game.phase === 'handComplete' ? winInfo(game) : null;
@@ -101,8 +117,16 @@ export function FreePlayScreen() {
   const hero = game.seats.find((s) => s.isHuman);
   const heroToAct = hero && game.toActSeatId === hero.id && game.phase === 'betting';
   const handOver = game.phase === 'handComplete';
-  const canContinue = game.seats.filter((s) => s.stack > 0).length >= 2;
-  const heroBusted = hero ? hero.stack === 0 && !canContinue : false;
+  // Single-player: the session ends when the hero is out of chips, even if the
+  // bots could keep playing. Dealing a chip-less hero seats them 'out' with no
+  // hole cards (placeholder cards on the felt) — the bug this guards against.
+  const canContinue = canDealNextHand(game);
+  const heroBusted = heroIsBusted(game);
+
+  // Reward magnitude — drives confetti density and the ray-burst gate so a
+  // monster pot reads bigger than a folded blind. (Audio scales in useTableSfx.)
+  const winTier = win?.heroWon ? payoutTier(win.amount, game.bigBlind) : 'small';
+  const CONFETTI: Record<string, number> = { small: 16, medium: 28, big: 38, monster: 56 };
 
   const headerExtra = `BLINDS ${game.smallBlind}/${game.bigBlind} · HAND ${game.handNumber}`;
 
@@ -113,9 +137,10 @@ export function FreePlayScreen() {
           <Table game={game} thinkingSeatId={botThinking ? game.toActSeatId : null}>
             {win && (
               <div className="win-overlay" key={game.handNumber}>
-                {win.heroWon && <Confetti count={32} />}
-                {/* Slot-machine gold ray-burst behind the hero banner. */}
-                {win.heroWon && (
+                {win.heroWon && <Confetti count={CONFETTI[winTier]} />}
+                {/* Slot-machine gold ray-burst — reserved for medium+ pots so
+                    it reads as a bigger moment than a routine fold-out win. */}
+                {win.heroWon && winTier !== 'small' && (
                   <div className="win-burst" aria-hidden="true">
                     <i className="win-burst-rays" />
                   </div>
@@ -161,7 +186,7 @@ export function FreePlayScreen() {
             {handOver && !canContinue && (
               <div className="game-over">
                 <p>{heroBusted ? 'You’re out of chips.' : 'Game over.'}</p>
-                <button className="btn btn-blue" onClick={() => newGame()}>NEW GAME</button>
+                <button className="btn btn-blue" onClick={() => { playSfx('click'); newGame(); }}>NEW GAME</button>
               </div>
             )}
           </div>

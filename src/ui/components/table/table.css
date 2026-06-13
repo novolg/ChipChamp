@@ -18,6 +18,17 @@
   padding: 80px;
   text-align: center;
   color: var(--c-text-muted);
+  /* Shuffling-in shimmer so the brief deal wait never reads as a frozen frame. */
+  background: linear-gradient(100deg, var(--c-text-faint) 30%, var(--c-text) 50%, var(--c-text-faint) 70%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: loading-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes loading-shimmer {
+  from { background-position: 140% 0; }
+  to { background-position: -40% 0; }
 }
 
 /* ---- Cards (paper, Oswald rank, pinline frame) ---- */
@@ -325,18 +336,44 @@
   background: var(--c-surface);
   display: block;
 }
-/* Timebank-style ring: slowly rotating dashes read as a draining timer. */
+/* Timebank arc: an SVG ring on the acting bot. Idle = hidden; acting = a stroke
+   that drains over --tb-ms and reddens in the final third (a real shot clock,
+   not the old decorative constant spin). */
 .acting-ring {
   position: absolute;
   inset: -6px;
-  border-radius: 50%;
-  border: 3px dashed var(--c-orange);
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
   opacity: 0;
   pointer-events: none;
+  transform: rotate(-90deg); /* drain starts from 12 o'clock */
+}
+.acting-ring-track {
+  fill: none;
+  stroke: rgba(255, 165, 2, 0.18);
+  stroke-width: 3;
+}
+.acting-ring-progress {
+  fill: none;
+  stroke: var(--c-orange);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0; /* full ring when not animating (reduced-motion safe) */
 }
 .botseat-acting .acting-ring {
   opacity: 1;
-  animation: ring-spin 6s linear infinite;
+}
+.botseat-acting .acting-ring-progress {
+  animation: tb-drain var(--tb-ms, 750ms) linear forwards,
+    tb-redden var(--tb-ms, 750ms) linear forwards;
+}
+@keyframes tb-drain {
+  to { stroke-dashoffset: 100; } /* empty */
+}
+@keyframes tb-redden {
+  0%, 68% { stroke: var(--c-orange); }
+  100% { stroke: var(--c-red); }
 }
 .botseat-acting .botseat-avatar-wrap::after {
   content: '';
@@ -346,12 +383,13 @@
   box-shadow: 0 0 20px rgba(255, 165, 2, 0.5);
   animation: ring-breathe 1.1s ease-in-out infinite;
 }
-@keyframes ring-spin {
-  to { transform: rotate(360deg); }
-}
 @keyframes ring-breathe {
   0%, 100% { opacity: 0.45; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.06); }
+}
+/* Reduced motion: no drain — a static full orange ring. */
+@media (prefers-reduced-motion: reduce) {
+  .botseat-acting .acting-ring-progress { animation: none; stroke-dashoffset: 0; }
 }
 /* GG-style numeric level chip on the avatar ring. */
 .seat-level {
@@ -495,13 +533,15 @@
 .seat-bet-center { left: 50%; top: 142px; transform: translateX(-50%); --cx: 0px; --cy: 100px; }
 .seat-bet-right { right: 150px; top: 170px; --cx: -240px; --cy: 75px; }
 .seat-bet-hero { left: 50%; bottom: 188px; transform: translateX(-50%); --cx: 0px; --cy: -145px; }
-/* Ghost pills converge on the pot as the street ends (pot-bump fires as they land). */
+/* Ghost pills converge on and LAND at the pot (~--collect-ms); the pot then
+   punches and a clink fires on the same beat (see Table LAND_MS). */
 .seat-bet-collect .chips {
-  animation: chips-collect 0.45s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+  animation: chips-collect var(--collect-ms, 0.42s) cubic-bezier(0.5, 0, 0.2, 1) forwards;
 }
 @keyframes chips-collect {
+  85% { opacity: 0.9; } /* stay visible through the flight — read the arrival */
   to {
-    transform: translate(var(--cx), var(--cy)) scale(0.45);
+    transform: translate(var(--cx), var(--cy)) scale(0.5);
     opacity: 0;
   }
 }
@@ -790,6 +830,29 @@
 @keyframes bar-grow {
   from { transform: scaleX(0); }
 }
+/* +EV: the equity fill turns green when it meets/exceeds the needed odds. */
+.coach-bar-fill-good {
+  background: var(--c-green);
+  box-shadow: 0 0 14px rgba(46, 213, 115, 0.5);
+}
+/* The have-vs-need gap, pulsed once per street remount so the edge is felt. */
+.coach-bar-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  opacity: 0.5;
+  animation: coach-gap-pulse 0.6s var(--ease-out) 120ms 1 backwards;
+}
+/* Surplus band sits over the GREEN +EV fill, so it must be a pale mint to read
+   (plain translucent green would vanish into the fill beneath it). */
+.coach-bar-gap-good { background: rgba(214, 255, 232, 0.95); }
+.coach-bar-gap-short { background: rgba(255, 71, 87, 0.55); }
+@keyframes coach-gap-pulse {
+  0% { opacity: 0; }
+  40% { opacity: 0.8; }
+  100% { opacity: 0.5; }
+}
 .coach-bar-mark {
   position: absolute;
   top: -4px;
@@ -877,15 +940,22 @@
   }
 }
 
-/* Winning cards pulse at showdown (outranks the deal/flip animation rules). */
+/* Winning cards pulse at showdown (outranks the deal/flip animation rules):
+   they lift AND breathe a green glow so the winning combo reads instantly. */
 .felt-cards .pcard.pcard-highlight,
 .hero-cards .pcard.pcard-highlight,
 .botseat-cards .pcard.pcard-highlight {
   animation: win-card 0.9s ease-in-out infinite alternate;
 }
 @keyframes win-card {
-  from { transform: translateY(0); }
-  to { transform: translateY(-4px); }
+  from {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 0 rgba(46, 213, 115, 0));
+  }
+  to {
+    transform: translateY(-5px) scale(1.04);
+    filter: drop-shadow(0 6px 16px rgba(46, 213, 115, 0.6));
+  }
 }
 
 /* Hero cards float as a pair (the container, not the rotated children, so
@@ -896,6 +966,22 @@
 @keyframes card-float {
   from { transform: translateY(0); }
   to { transform: translateY(-3px); }
+}
+
+/* Hero's "your turn" spotlight — blue to read as 'mine' vs the bots' orange.
+   Plate glow + 1px lift only; the hero-cards float (above) is untouched. */
+.hero-plate {
+  transition: box-shadow 220ms var(--ease-snap), border-color 220ms var(--ease-snap),
+    transform 220ms var(--ease-snap);
+}
+.hero-plate-acting {
+  border-color: var(--c-blue);
+  transform: translateY(-2px);
+  animation: hero-plate-breathe 1.3s ease-in-out infinite;
+}
+@keyframes hero-plate-breathe {
+  0%, 100% { box-shadow: 0 4px 0 var(--c-blue-edge), 0 0 22px rgba(0, 110, 253, 0.35); }
+  50% { box-shadow: 0 4px 0 var(--c-blue-edge), 0 0 34px rgba(0, 110, 253, 0.6); }
 }
 
 /* Pot glow breathes while there's money in the middle. */
@@ -930,6 +1016,38 @@
     opacity: 0;
     transform: scale(0.6);
   }
+}
+
+/* All-in: orange felt-rim flash + a single impulse "punch" on the felt layer
+   (never the scaled .frame). Restarted imperatively per shove in Table.tsx.
+   The punch keeps the felt's translate(-50%,-50%) centering. */
+.table-felt-shove {
+  animation: allin-punch 160ms var(--ease-out, ease-out);
+}
+.table-felt-shove::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 3px rgba(255, 165, 2, 0.9), inset 0 0 40px rgba(255, 165, 2, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  animation: allin-rim 720ms var(--ease-out, ease-out);
+}
+@keyframes allin-punch {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  45% { transform: translate(-50%, calc(-50% - 2px)) scale(1.008); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes allin-rim {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-felt-shove { animation: none; }
+  .table-felt-shove::before { animation: allin-rim 600ms ease-out; }
 }
 
 /* Bet pills pop in on every amount change (keyed remounts). */

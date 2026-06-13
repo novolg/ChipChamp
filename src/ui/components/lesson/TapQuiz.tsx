@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Card } from '../../../engine/types';
 import { PlayingCard } from '../table/Card';
+import { playSfx } from '../../lib/sound';
 
 interface TapQuizProps {
   prompt: string;
@@ -26,8 +27,12 @@ export function TapQuiz({ prompt, options, correctIndex, explanation }: TapQuizP
             else if (i === picked) cls += ' tapquiz-option-wrong';
             else cls += ' tapquiz-option-dim';
           }
+          const choose = () => {
+            setPicked(i);
+            playSfx(i === correctIndex ? 'star' : 'lose');
+          };
           return (
-            <button key={i} className={cls} disabled={answered} onClick={() => setPicked(i)}>
+            <button key={i} className={cls} disabled={answered} onClick={choose}>
               <span className="tapquiz-cards">
                 {opt.cards.map((card, j) => (
                   <PlayingCard key={j} card={card} size="sm" />

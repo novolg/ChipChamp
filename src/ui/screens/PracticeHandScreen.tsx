@@ -8,6 +8,7 @@ import type { Action } from '../../engine/types';
 import { Table } from '../components/table/Table';
 import { ActionControls } from '../components/controls/ActionControls';
 import { Confetti } from '../components/Confetti';
+import { playSfx } from '../lib/sound';
 
 interface Feedback {
   correct: boolean;
@@ -40,6 +41,7 @@ export function PracticeHandScreen({ handId }: { handId: string }) {
       action.type === checkpoint.recommended ||
       (checkpoint.acceptable?.includes(action.type) ?? false);
     if (ok) record({ type: 'scriptedHandCompleted', handId });
+    playSfx(ok ? 'win' : 'lose');
     setFeedback({ correct: ok, text: ok ? checkpoint.explainRight : checkpoint.explainWrong });
   };
 

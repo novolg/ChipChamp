@@ -57,87 +57,78 @@
 /* 20px so the chip protruding from the HUD capsule clears the nav switcher. */
 .frame-right { display: flex; align-items: center; gap: 20px; }
 
-/* ---- Progress HUD: chip-anchored sunken capsule + glossy run bar ---- */
-.hud {
-  position: relative;
+/* ---- SFX mute toggle: sunken round icon button matching the HUD/nav track ---- */
+.sfx-toggle {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+  color: var(--c-text-3);
+  cursor: pointer;
+  transition: color var(--t-hover), transform var(--t-hover) var(--ease-snap),
+    box-shadow var(--t-hover);
+}
+.sfx-toggle:hover {
+  color: var(--c-orange-hi);
+  transform: translateY(-1px);
+  box-shadow: var(--sh-sunken), 0 0 14px rgba(255, 165, 2, 0.25);
+}
+.sfx-toggle:active { transform: translateY(0) scale(0.92); }
+.sfx-toggle[data-muted='true'] { color: var(--c-text-faint); }
+.sfx-toggle[data-muted='true']:hover { color: var(--c-text-2); box-shadow: var(--sh-sunken); }
+.sfx-toggle svg { display: block; }
+
+/* ---- Run-progress chips in the header: one chip per learning step, lit as
+   they're earned. Each coin-flips on hover (the gesture the old HUD chip had);
+   the newest chip light-transitions in + blooms a burst on level-up. ---- */
+.hdr-chips {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 14px 5px 28px;
-  border-radius: var(--r-pill);
-  background: var(--c-surface-sunken);
-  box-shadow: var(--sh-sunken);
+  gap: 5px;
 }
-/* Chip sits half-outside the capsule edge, with a lazy idle bob. Every
-   keyframe must carry the translateY(-50%) centering offset. */
-.hud-chip {
-  position: absolute;
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
-  filter: drop-shadow(0 2px 0 #b87500) drop-shadow(0 0 8px rgba(255, 165, 2, 0.35));
-  animation: chip-bob 4s ease-in-out infinite;
-}
-@keyframes chip-bob {
-  0%, 100% { transform: translateY(-50%) rotate(0deg); }
-  50% { transform: translateY(calc(-50% - 2px)) rotate(8deg); }
-}
-/* Hovering the HUD coin-flips the chip; bob resumes on hover-out. */
-.hud:hover .hud-chip {
-  animation: chip-flip 0.6s var(--ease-out);
-}
-@keyframes chip-flip {
-  from { transform: translateY(-50%) rotateY(0deg); }
-  to { transform: translateY(-50%) rotateY(360deg); }
-}
-.hud-count {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--c-orange-hi);
-  animation: pop-in 0.3s var(--ease-spring) backwards;
-}
-.hud-count-total {
-  font-size: 11px;
-  color: var(--c-text-faint);
-}
-.hud-bar {
+.hdr-chip-wrap {
   position: relative;
-  width: 110px;
-  height: 10px;
-  border-radius: 5px;
-  background: var(--c-surface-sunken);
-  box-shadow: var(--sh-sunken);
-  overflow: hidden;
+  display: inline-flex;
 }
-.hud-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: 5px;
-  background: linear-gradient(90deg, var(--c-orange), var(--c-orange-hi));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 0 10px rgba(255, 165, 2, 0.5);
-  transition: width 0.6s var(--ease-out);
+.hdr-chip {
+  width: 23px;
+  height: 23px;
+  opacity: 0.5;
+  filter: drop-shadow(0 2px 0 #14141e);
+  backface-visibility: hidden;
+  transition: opacity var(--t-reveal) var(--ease-out), filter var(--t-reveal) var(--ease-out);
 }
-/* Periodic gloss sweep across the bar (translate/opacity only). */
-.hud-bar::after {
-  content: '';
+.hdr-chip-earned {
+  opacity: 1;
+  filter: drop-shadow(0 2px 0 #b87500) drop-shadow(0 0 7px rgba(255, 165, 2, 0.45));
+}
+/* Coin-flip on rollover — earned and unearned alike. */
+.hdr-chip-wrap:hover .hdr-chip {
+  animation: chip-flip-y 0.6s var(--ease-out);
+}
+@keyframes chip-flip-y {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+/* Level-up burst centered on the newest earned chip (scale/opacity via Framer). */
+.hdr-burst {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 24px;
-  border-radius: 5px;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  animation: hud-sheen-sweep 2.8s ease-in-out infinite;
+  top: 50%;
+  left: 50%;
+  width: 38px;
+  height: 38px;
+  margin: -19px 0 0 -19px;
+  border-radius: 50%;
+  border: 2px solid var(--c-orange-hi);
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.35), transparent 68%);
+  box-shadow: 0 0 22px rgba(255, 209, 102, 0.7), inset 0 0 12px rgba(255, 209, 102, 0.5);
   pointer-events: none;
-}
-@keyframes hud-sheen-sweep {
-  0%, 55% { transform: translateX(-26px); opacity: 0; }
-  60% { opacity: 1; }
-  90%, 100% { transform: translateX(114px); opacity: 0; }
+  z-index: 4;
 }
 
 /* Segmented Learn / Free Play switcher: sunken track + a sliding spring thumb
@@ -290,43 +281,6 @@
   }
 }
 
-/* Full-width "YOUR RUN" status bar pinned to the bottom of the screen. */
-.learn-strip {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 22px;
-  border-radius: var(--r-panel);
-  background: linear-gradient(180deg, #1f1f2b 0%, #191923 100%);
-  border: 1px solid var(--c-border);
-  box-shadow: var(--sh-plate);
-}
-.learn-run-label {
-  font-weight: 800;
-  font-style: italic;
-  font-size: 22px;
-  letter-spacing: 0.5px;
-  line-height: 1;
-  color: var(--c-text-2);
-}
-.learn-chips { display: flex; align-items: center; gap: 12px; }
-.learn-chip-row { display: flex; gap: 6px; }
-.learn-chip {
-  width: 24px;
-  height: 24px;
-  opacity: 0.55;
-  filter: drop-shadow(0 2px 0 #14141e);
-  transition: transform var(--t-hover) var(--ease-spring);
-}
-.learn-chip-earned {
-  opacity: 1;
-  filter: drop-shadow(0 2px 0 #b87500) drop-shadow(0 0 8px rgba(255, 165, 2, 0.4));
-  animation: pop-in 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
-}
-.learn-chip-earned:hover { transform: translateY(-2px) rotate(10deg); }
-.learn-chip-count { font-size: 13px; font-weight: 700; color: var(--c-text-muted); }
 .tile-active {
   background: linear-gradient(180deg, #1e2334 0%, #1d1d2a 100%);
   border: 2px solid var(--c-blue);
@@ -370,10 +324,31 @@
 .tile-btn { margin-top: auto; padding: 9px 0; font-size: 14px; border-radius: 9px; }
 .tile-lock-cap {
   margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 1px;
   color: var(--c-text-faint);
+}
+.tile-lock-ico {
+  font-size: 12px;
+  filter: grayscale(0.4);
+  transition: filter var(--t-tap);
+}
+/* On a denied click the whole tile shakes; the padlock also rattles + flares. */
+.tile-deny .tile-lock-ico {
+  filter: none;
+  animation: lock-jiggle 0.4s ease-in-out;
+  transform-origin: 50% 70%;
+}
+@keyframes lock-jiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-16deg) scale(1.15); }
+  45% { transform: rotate(14deg) scale(1.15); }
+  70% { transform: rotate(-8deg) scale(1.08); }
+  85% { transform: rotate(5deg) scale(1.04); }
 }
 
 /* No viewport-keyed reflow: the frame is a fixed 1240px canvas that only
@@ -552,11 +527,45 @@
   gap: 8px;
   margin-bottom: var(--sp-4);
 }
+.quiz-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 22px;
+}
 .quiz-progress-count {
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 1.5px;
   color: var(--c-text-faint);
+}
+/* Streak badge — appears at 2+ correct in a row, glow escalates with length. */
+.quiz-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  color: var(--c-orange-hi);
+  background: rgba(255, 165, 2, 0.12);
+  border: 1px solid rgba(255, 165, 2, 0.4);
+  box-shadow: 0 0 12px rgba(255, 165, 2, 0.2);
+}
+.quiz-streak[data-tier='3'] { box-shadow: 0 0 16px rgba(255, 165, 2, 0.35); }
+.quiz-streak[data-tier='4'] { box-shadow: 0 0 20px rgba(255, 120, 40, 0.5); color: #ffcf6b; }
+.quiz-streak[data-tier='5'] {
+  box-shadow: 0 0 26px rgba(255, 90, 30, 0.65);
+  border-color: var(--c-red);
+  animation: streak-throb 0.9s ease-in-out infinite;
+}
+@keyframes streak-throb {
+  50% { box-shadow: 0 0 34px rgba(255, 71, 87, 0.85); }
 }
 .quiz-dots { display: flex; gap: 6px; }
 .quiz-dot {
@@ -593,15 +602,6 @@
   transition: width 0.4s var(--ease-out);
 }
 .quiz-q { margin-bottom: var(--sp-6); }
-.quiz-q-card {
-  animation: quiz-slide 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
-}
-@keyframes quiz-slide {
-  from {
-    opacity: 0;
-    transform: translateX(36px);
-  }
-}
 .quiz-prompt { font-weight: 700; line-height: 1.5; }
 .quiz-options { display: flex; flex-direction: column; gap: var(--sp-2); }
 .quiz-option {
@@ -678,7 +678,7 @@
 .quiz-option-wrong { animation: option-shake 0.4s ease-in-out; }
 @keyframes option-right {
   0% { transform: scale(1); }
-  45% { transform: scale(1.025); }
+  35% { transform: scale(1.04); box-shadow: 0 0 0 2px var(--c-green), 0 0 18px rgba(46, 213, 115, 0.5); }
   100% { transform: scale(1); }
 }
 @keyframes option-shake {

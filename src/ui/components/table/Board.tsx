@@ -7,12 +7,15 @@ interface BoardProps {
   pot: number;
   street: string;
   highlightKeys?: Set<string>;
+  /** Increment to replay the pot-punch on the chip-landing beat (Table-owned),
+   *  decoupled from the raw pot value so the punch lands when chips arrive. */
+  bumpKey?: number;
 }
 
 const key = (c: Card) => `${c.rank}${c.suit}`;
 
 /** Centre of the felt: street pill, pot, community cards (or dashed slots), deck. */
-export function Board({ board, pot, street, highlightKeys }: BoardProps) {
+export function Board({ board, pot, street, highlightKeys, bumpKey = 0 }: BoardProps) {
   const shownPot = useCountUp(pot);
   return (
     <>
@@ -21,7 +24,7 @@ export function Board({ board, pot, street, highlightKeys }: BoardProps) {
       <div className="felt-stack">
         <div className="felt-street" key={street}>{street.toUpperCase()}</div>
         <div className={`felt-pot${pot > 0 ? ' felt-pot-live' : ''}`}>
-          <span className="felt-pot-chips" key={pot} aria-hidden="true">
+          <span className="felt-pot-chips" key={bumpKey} aria-hidden="true">
             <img src="/assets/chip-orange.png" alt="" className="felt-pot-chip felt-pot-chip-0" />
             <img src="/assets/chip-blue.png" alt="" className="felt-pot-chip felt-pot-chip-1" />
           </span>

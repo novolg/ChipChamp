@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import type { Action, GameState } from '../../../engine/types';
 import { getLegalActions, getSeat } from '../../../engine/betting';
+import { playSfx, type SfxName } from '../../lib/sound';
+
+/** The human's action gets its verb cue fired synchronously on press (below),
+ *  so it feels instant; useTableSfx suppresses the duplicate log echo. */
+const PRESS_SFX: Partial<Record<Action['type'], SfxName>> = {
+  fold: 'fold', check: 'check', call: 'call', bet: 'bet', raise: 'raise', allin: 'allin',
+};
 
 interface ActionControlsProps {
   game: GameState;
@@ -36,6 +43,13 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
   const fill = max > min ? ((clamped - min) / (max - min)) * 100 : 0;
 
   const fmt = (n: number) => n.toLocaleString();
+
+  // Play the verb cue synchronously on press, then dispatch — no input lag.
+  const act = (action: Action) => {
+    const sfx = PRESS_SFX[action.type];
+    if (sfx) playSfx(sfx);
+    onAction(action);
+  };
 
   return (
     <div className="action-bar">
@@ -90,17 +104,17 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
       {/* GG-style two-line buttons: verb on top, amount subordinate below. */}
       <div className="action-row action-row-buttons">
         {has('fold') && (
-          <button className="btn btn-red action-btn" disabled={disabled} onClick={() => onAction({ type: 'fold', seatId })}>
+          <button className="btn btn-red action-btn" disabled={disabled} onClick={() => act({ type: 'fold', seatId })}>
             <b>FOLD</b>
           </button>
         )}
         {has('check') && (
-          <button className="btn btn-blue action-btn" disabled={disabled} onClick={() => onAction({ type: 'check', seatId })}>
+          <button className="btn btn-blue action-btn" disabled={disabled} onClick={() => act({ type: 'check', seatId })}>
             <b>CHECK</b>
           </button>
         )}
         {has('call') && (
-          <button className="btn btn-blue action-btn" disabled={disabled} onClick={() => onAction({ type: 'call', seatId })}>
+          <button className="btn btn-blue action-btn" disabled={disabled} onClick={() => act({ type: 'call', seatId })}>
             <b>CALL</b>
             {/* Keyed: the price visibly pops when a bot raises mid-street. */}
             <small key={toCall}>{fmt(toCall)}</small>
@@ -110,7 +124,7 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
           <button
             className="btn btn-outline-orange action-btn"
             disabled={disabled}
-            onClick={() => onAction({ type: 'allin', seatId })}
+            onClick={() => act({ type: 'allin', seatId })}
           >
             <b>ALL-IN</b>
             <small>{fmt(seat.committedThisStreet + seat.stack)}</small>
@@ -120,7 +134,7 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
           <button
             className="btn btn-orange action-btn action-btn-raise"
             disabled={disabled}
-            onClick={() => onAction({ type: betOrRaise.type as 'bet' | 'raise', seatId, amount: clamped })}
+            onClick={() => act({ type: betOrRaise.type as 'bet' | 'raise', seatId, amount: clamped })}
           >
             <b>{betOrRaise.type === 'bet' ? 'BET' : 'RAISE TO'}</b>
             <small>{fmt(clamped)}</small>

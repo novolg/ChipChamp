@@ -24,6 +24,11 @@ export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
   const advice = canAdvise ? advise(game, seatId) : null;
   const equityFill = advice ? Math.min(100, advice.equityEstimate * 100) : 0;
   const needMark = advice && advice.potOdds > 0 ? Math.min(100, advice.potOdds * 100) : null;
+  // +EV when equity meets/exceeds the price; the gap is the [have↔need] band.
+  const profitable = advice != null && needMark != null && equityFill >= needMark;
+  const gap = advice != null && needMark != null
+    ? { left: Math.min(equityFill, needMark), width: Math.abs(equityFill - needMark) }
+    : null;
 
   return (
     <aside className="coach">
@@ -62,8 +67,19 @@ export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
           </div>
 
           <div className="coach-bar">
-            {/* Transform-only fill so the spring stays on the compositor. */}
-            <span className="coach-bar-fill" style={{ transform: `scaleX(${equityFill / 100})` }} />
+            {/* Transform-only fill so the spring stays on the compositor; turns
+                green when the call is +EV. */}
+            <span
+              className={`coach-bar-fill${profitable ? ' coach-bar-fill-good' : ''}`}
+              style={{ transform: `scaleX(${equityFill / 100})` }}
+            />
+            {/* The have-vs-need gap: a green surplus or a red shortfall band. */}
+            {gap && (
+              <span
+                className={`coach-bar-gap${profitable ? ' coach-bar-gap-good' : ' coach-bar-gap-short'}`}
+                style={{ left: `${gap.left}%`, width: `${gap.width}%` }}
+              />
+            )}
             {needMark !== null && (
               <span className="coach-bar-mark" style={{ left: `${needMark}%` }} />
             )}
