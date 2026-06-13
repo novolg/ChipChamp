@@ -830,6 +830,27 @@
 @keyframes bar-grow {
   from { transform: scaleX(0); }
 }
+/* +EV: the equity fill turns green when it meets/exceeds the needed odds. */
+.coach-bar-fill-good {
+  background: var(--c-green);
+  box-shadow: 0 0 14px rgba(46, 213, 115, 0.5);
+}
+/* The have-vs-need gap, pulsed once per street remount so the edge is felt. */
+.coach-bar-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  opacity: 0.5;
+  animation: coach-gap-pulse 0.6s var(--ease-out) 120ms 1 backwards;
+}
+.coach-bar-gap-good { background: rgba(46, 213, 115, 0.55); }
+.coach-bar-gap-short { background: rgba(255, 71, 87, 0.55); }
+@keyframes coach-gap-pulse {
+  0% { opacity: 0; }
+  40% { opacity: 0.8; }
+  100% { opacity: 0.5; }
+}
 .coach-bar-mark {
   position: absolute;
   top: -4px;
