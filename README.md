@@ -1,4 +1,8 @@
-# ChipChamp
+<p align="center">
+  <img src="public/assets/readme-banner.png" alt="ChipChamp" width="640" />
+</p>
+
+<p align="center"><b>Learn Texas Hold'em by playing</b> — single-player vs AI bots, with a live coaching rail.</p>
 
 A browser app that teaches **Texas Hold'em** to beginners and lets them practice single-player against rule-based AI bots, with a live coaching rail (hand strength, pot odds, suggested action). No real money, no backend — everything runs client-side; progress is saved in `localStorage`.
 
