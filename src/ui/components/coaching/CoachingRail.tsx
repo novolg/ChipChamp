@@ -29,7 +29,7 @@ export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
     <aside className="coach">
       <div className="coach-head">
         <span className="coach-title">COACH</span>
-        <span className="coach-live" aria-label="live coaching" />
+        <span className={`coach-live${advice ? ' coach-live-on' : ''}`} aria-label="live coaching" />
       </div>
 
       {!advice && (
@@ -41,7 +41,9 @@ export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
       )}
 
       {advice && (
-        <>
+        /* display: contents wrapper keyed per street so the staggered
+           reveal replays as the hand progresses. */
+        <div className="coach-advice" key={game.street}>
           <div className="coach-tiles">
             <div className="coach-tile">
               <span className="coach-tile-label">HAND</span>
@@ -60,14 +62,16 @@ export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
           </div>
 
           <div className="coach-bar">
-            <span className="coach-bar-fill" style={{ width: `${equityFill}%` }} />
+            {/* Transform-only fill so the spring stays on the compositor. */}
+            <span className="coach-bar-fill" style={{ transform: `scaleX(${equityFill / 100})` }} />
             {needMark !== null && (
               <span className="coach-bar-mark" style={{ left: `${needMark}%` }} />
             )}
           </div>
 
           <div className="coach-suggest">
-            <button className={`btn ${ACTION_BTN[advice.suggestedAction]} coach-suggest-btn`} disabled>
+            {/* Keyed so the button re-pops when the suggestion changes. */}
+            <button key={advice.suggestedAction} className={`btn ${ACTION_BTN[advice.suggestedAction]} coach-suggest-btn`} disabled>
               {ACTION_LABEL[advice.suggestedAction]}
               {advice.suggestedAmount ? ` ${advice.suggestedAmount.toLocaleString()}` : ''}
             </button>
@@ -79,7 +83,7 @@ export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
           </div>
 
           <p className="coach-note">{advice.reasoning}</p>
-        </>
+        </div>
       )}
     </aside>
   );

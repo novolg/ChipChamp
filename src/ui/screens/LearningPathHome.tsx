@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import type { MouseEvent } from 'react';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
 import { AppFrame } from '../components/AppFrame';
@@ -23,9 +25,22 @@ const TYPE_GLYPH: Record<LearningStep['type'], string> = {
 
 const cleanTitle = (t: string) => t.replace(/^(Learn|Quiz|Practice|Play): /, '');
 
+/* Write normalized cursor position (-0.5..0.5) into --mx/--my for the CSS tilt. */
+const trackTilt = (e: MouseEvent<HTMLDivElement>) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty('--mx', String((e.clientX - r.left) / r.width - 0.5));
+  e.currentTarget.style.setProperty('--my', String((e.clientY - r.top) / r.height - 0.5));
+};
+const resetTilt = (e: MouseEvent<HTMLDivElement>) => {
+  e.currentTarget.style.setProperty('--mx', '0');
+  e.currentTarget.style.setProperty('--my', '0');
+};
+
 export function LearningPathHome() {
   const go = useNavStore((s) => s.go);
   const progress = useProgressStore((s) => s.progress);
+  /** Locked tile currently playing its deny shake (cleared on animation end). */
+  const [denyId, setDenyId] = useState<string | null>(null);
 
   const open = (step: LearningStep) => {
     switch (step.type) {
@@ -51,13 +66,20 @@ export function LearningPathHome() {
         <div className="learn-grid">
           {steps.map(({ step, complete, unlocked }, i) => {
             const state = complete ? 'complete' : unlocked ? 'active' : 'locked';
+            const locked = state === 'locked';
+            const denying = locked && denyId === step.id;
             const lockedCaption =
               i === currentIndex + 1 ? `FINISH STEP ${currentIndex + 1} TO UNLOCK` : 'LOCKED';
             return (
               <div
                 key={step.id}
-                className={`tile tile-${state}`}
-                style={{ animationDelay: `${i * 0.05}s` }}
+                className={`tile tile-${state}${denying ? ' tile-deny' : ''}`}
+                /* Second delay is for the deny shake (see .tile-deny). */
+                style={{ animationDelay: denying ? `${i * 0.05}s, 0s` : `${i * 0.05}s` }}
+                onMouseMove={locked ? undefined : trackTilt}
+                onMouseLeave={locked ? undefined : resetTilt}
+                onClick={locked ? () => setDenyId(step.id) : undefined}
+                onAnimationEnd={locked ? () => setDenyId(null) : undefined}
               >
                 <span className="tile-glyph" aria-hidden="true">{TYPE_GLYPH[step.type]}</span>
                 <div className="tile-head">

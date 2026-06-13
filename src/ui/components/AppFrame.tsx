@@ -49,6 +49,8 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
         <div className="frame-right">
           <ProgressHud />
           <nav className="nav-switch" role="tablist">
+            {/* Sliding active surface; segs are transparent on top of it. */}
+            <span className="nav-thumb" data-pos={active} aria-hidden="true" />
             <button
               role="tab"
               aria-selected={active === 'learn'}

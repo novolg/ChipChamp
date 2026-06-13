@@ -73,7 +73,8 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
             >
               −
             </button>
-            <span className="bet-step-amount">{fmt(clamped)}</span>
+            {/* Keyed so every amount change replays the pop animation. */}
+            <span className="bet-step-amount" key={clamped}>{fmt(clamped)}</span>
             <button
               className="bet-step"
               disabled={disabled}
@@ -86,20 +87,23 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
         </div>
       )}
 
+      {/* GG-style two-line buttons: verb on top, amount subordinate below. */}
       <div className="action-row action-row-buttons">
         {has('fold') && (
           <button className="btn btn-red action-btn" disabled={disabled} onClick={() => onAction({ type: 'fold', seatId })}>
-            FOLD
+            <b>FOLD</b>
           </button>
         )}
         {has('check') && (
           <button className="btn btn-blue action-btn" disabled={disabled} onClick={() => onAction({ type: 'check', seatId })}>
-            CHECK
+            <b>CHECK</b>
           </button>
         )}
         {has('call') && (
           <button className="btn btn-blue action-btn" disabled={disabled} onClick={() => onAction({ type: 'call', seatId })}>
-            CALL {fmt(toCall)}
+            <b>CALL</b>
+            {/* Keyed: the price visibly pops when a bot raises mid-street. */}
+            <small key={toCall}>{fmt(toCall)}</small>
           </button>
         )}
         {has('allin') && (
@@ -108,7 +112,8 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
             disabled={disabled}
             onClick={() => onAction({ type: 'allin', seatId })}
           >
-            ALL-IN {fmt(seat.committedThisStreet + seat.stack)}
+            <b>ALL-IN</b>
+            <small>{fmt(seat.committedThisStreet + seat.stack)}</small>
           </button>
         )}
         {betOrRaise && (
@@ -117,7 +122,8 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
             disabled={disabled}
             onClick={() => onAction({ type: betOrRaise.type as 'bet' | 'raise', seatId, amount: clamped })}
           >
-            {betOrRaise.type === 'bet' ? 'BET' : 'RAISE TO'} {fmt(clamped)}
+            <b>{betOrRaise.type === 'bet' ? 'BET' : 'RAISE TO'}</b>
+            <small>{fmt(clamped)}</small>
           </button>
         )}
       </div>

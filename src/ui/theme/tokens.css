@@ -93,4 +93,32 @@
   --font-ui: 'Kanit', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --font-card: 'Oswald', sans-serif;
+
+  /* ---- Motion ---- */
+  --ease-spring: cubic-bezier(0.2, 1.4, 0.4, 1); /* hard overshoot: pills, pings, key-caps */
+  --ease-snap: cubic-bezier(0.22, 1.1, 0.36, 1); /* soft spring: hover lifts, nav thumb, knob scale */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); /* standard decel: reveals, fills */
+  --ease-flip: cubic-bezier(0.2, 0.8, 0.3, 1.1); /* card-feel deal/flip */
+  --t-tap: 90ms;
+  --t-hover: 160ms;
+  --t-pop: 280ms;
+  --t-reveal: 420ms;
+  --t-sheen: 650ms;
+  --t-ambient: 3200ms;
+  --hover-lift: -2px;
+  --press-sink: 2px;
+
+  /* ---- Bot avatar palette (derived) ---- */
+  --bot-ava-body: color-mix(in srgb, var(--c-blue) 78%, var(--c-red) 22%); /* indigo-blue ≈ PNG #4f6cf0 */
+  --bot-ava-hi: color-mix(in srgb, var(--bot-ava-body) 76%, white 24%);
+  --bot-ava-rim: color-mix(in srgb, var(--bot-ava-body) 70%, black 30%);
+  --bot-ben-body: color-mix(in srgb, var(--c-blue) 52%, var(--c-red) 48%); /* violet ≈ PNG #7a4ff0 */
+  --bot-ben-hi: color-mix(in srgb, var(--bot-ben-body) 76%, white 24%);
+  --bot-ben-rim: color-mix(in srgb, var(--bot-ben-body) 70%, black 30%);
+  --bot-cleo-body: color-mix(in srgb, var(--c-orange) 82%, var(--c-red) 18%); /* warm orange ≈ PNG #ee8540 */
+  --bot-cleo-hi: color-mix(in srgb, var(--bot-cleo-body) 76%, white 24%);
+  --bot-cleo-rim: color-mix(in srgb, var(--bot-cleo-body) 70%, black 30%);
+  --bot-plate: color-mix(in srgb, var(--c-bg) 80%, black 20%); /* faceplate near-black */
+  --bot-eye-deep: color-mix(in srgb, var(--c-blue-text) 55%, var(--c-green) 45%);
+  --bot-eye: color-mix(in srgb, var(--bot-eye-deep) 68%, white 32%); /* cyan ≈ PNG #7fd4f7 */
 }

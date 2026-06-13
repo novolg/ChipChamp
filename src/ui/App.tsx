@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react';
 import { useNavStore } from './store/navStore';
+import { useFitScale } from './hooks/useFitScale';
 import { SuitField } from './components/SuitField';
 import { FreePlayScreen } from './screens/FreePlayScreen';
 import { LearningPathHome } from './screens/LearningPathHome';
@@ -11,11 +13,12 @@ import './screens/screens.css';
 
 export function App() {
   const view = useNavStore((s) => s.view);
+  const scale = useFitScale();
 
   return (
     <>
       <SuitField />
-      <main className="app-stage">
+      <main className="app-stage" style={{ '--fit-scale': scale } as CSSProperties}>
         {view.name === 'home' && <LearningPathHome />}
         {view.name === 'free' && <FreePlayScreen />}
         {view.name === 'lesson' && <LessonScreen lessonId={view.id} />}

@@ -52,3 +52,10 @@ export function winningCardKeys(game: GameState): Set<string> {
   }
   return keys;
 }
+
+/** Names of this hand's winners, parsed from the "X wins ..." notes in the log. */
+export function winnerNames(game: GameState): Set<string> {
+  return new Set(
+    game.log.map((e) => e.note?.match(/^(.+?) wins /)?.[1]).filter((n): n is string => !!n),
+  );
+}

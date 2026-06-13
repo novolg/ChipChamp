@@ -8,6 +8,13 @@ export function useCountUp(target: number, duration = 450): number {
   useEffect(() => {
     const from = displayRef.current;
     if (from === target) return;
+    // Snap instead of rolling for reduced-motion users — the CSS kill-switch
+    // can't touch this rAF-driven number animation.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      displayRef.current = target;
+      setDisplay(target);
+      return;
+    }
     let raf = 0;
     const start = performance.now();
     const tick = (now: number) => {

@@ -1,17 +1,19 @@
-import type { Card, Seat as SeatType } from '../../../engine/types';
+import type { ActionType, Card, Seat as SeatType } from '../../../engine/types';
 import { PlayingCard } from './Card';
-import { Chips } from './Chips';
+import { BotFace, botIdFor, type BotId, type Emotion } from './BotFace';
+import { useCountUp } from '../../hooks/useCountUp';
 
 export interface ActionBubble {
   text: string;
   tone: 'red' | 'blue' | 'orange';
   /** Log index of the action — keying on it replays the pop animation. */
   seq: number;
+  /** Raw action type — feeds the bot emotion derivation. */
+  type: ActionType;
 }
 
 interface SeatProps {
   seat: SeatType;
-  isButton: boolean;
   isToAct: boolean;
   /** Reveal hole cards (at showdown). */
   revealCards: boolean;
@@ -21,23 +23,31 @@ interface SeatProps {
   bubble?: ActionBubble;
   /** Show the animated "thinking" bubble (bot deciding). */
   thinking?: boolean;
+  /** Facial state for the BotFace — derived in Table, never stored. */
+  emotion: Emotion;
+  /** Bump to replay the emotion's entry jolt (keys the .bf-pose remount). */
+  emotionSeq: number;
+  /** Showdown emote glyph (at most one bot per hand; lifecycle is pure CSS). */
+  emote?: string;
 }
 
 const key = (c: Card) => `${c.rank}${c.suit}`;
 
-/** Map a bot's name to its avatar art; fall back to Ben's. */
-function avatarFor(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes('ava')) return '/assets/bot-ava.png';
-  if (n.includes('cleo')) return '/assets/bot-cleo.png';
-  return '/assets/bot-ben.png';
+/** Cosmetic fixed bot levels (GG-style ring badges); the hero's comes from learn progress. */
+const BOT_LEVEL: Record<BotId, number> = { ava: 8, ben: 4, cleo: 12 };
+
+/** Stack readout that rolls toward its new value — the won pot visibly lands. */
+export function StackAmount({ value }: { value: number }) {
+  const shown = useCountUp(value, 600);
+  return <>{shown.toLocaleString()}</>;
 }
 
-/** A bot seat: fanned card backs (or revealed cards), avatar, name plate and bet pill. */
-export function Seat({ seat, isButton, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking }: SeatProps) {
+/** A bot seat: fanned card backs (or revealed cards), animated face, name plate. */
+export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking, emotion, emotionSeq, emote }: SeatProps) {
   const folded = seat.status === 'folded';
   const allIn = seat.status === 'allin';
   const showCards = revealCards && seat.holeCards.length === 2;
+  const bot = botIdFor(seat.name);
 
   return (
     <div className={`botseat${isToAct ? ' botseat-acting' : ''}${folded ? ' botseat-folded' : ''}`}>
@@ -59,7 +69,14 @@ export function Seat({ seat, isButton, isToAct, revealCards, blindLabel, highlig
             </>
           )}
         </div>
-        <img src={avatarFor(seat.name)} alt="" className="botseat-avatar" />
+        <span className="botseat-avatar-wrap">
+          <div className="botseat-avatar">
+            <BotFace bot={bot} emotion={emotion} seatId={seat.id} name={seat.name} emotionSeq={emotionSeq} />
+          </div>
+          <i className="acting-ring" aria-hidden="true" />
+          <span className="seat-level">{BOT_LEVEL[bot]}</span>
+          {emote && <span className="seat-emote">{emote}</span>}
+        </span>
         {thinking ? (
           <span className="seat-bubble seat-bubble-think" aria-label={`${seat.name} is thinking`}>
             <i /><i /><i />
@@ -69,14 +86,11 @@ export function Seat({ seat, isButton, isToAct, revealCards, blindLabel, highlig
         ) : null}
         <div className="botseat-plate">
           <span className="botseat-name">{seat.name}</span>
-          {isButton && <span className="badge badge-button" title="Dealer">D</span>}
           {blindLabel && <span className="badge badge-blind">{blindLabel}</span>}
-          {isToAct && <span className="badge badge-acting">ACTING</span>}
           {allIn && <span className="badge badge-allin">ALL-IN</span>}
-          <span className="botseat-stack">{seat.stack.toLocaleString()}</span>
+          <span className="botseat-stack"><StackAmount value={seat.stack} /></span>
         </div>
       </div>
-      <Chips amount={seat.committedThisStreet} tone={isToAct ? 'orange' : 'blue'} label="Bet" />
     </div>
   );
 }

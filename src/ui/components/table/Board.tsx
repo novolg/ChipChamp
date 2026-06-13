@@ -20,12 +20,13 @@ export function Board({ board, pot, street, highlightKeys }: BoardProps) {
       <img src="/assets/card-back.png" alt="" className="felt-deck" aria-hidden="true" />
       <div className="felt-stack">
         <div className="felt-street" key={street}>{street.toUpperCase()}</div>
-        <div className="felt-pot">
+        <div className={`felt-pot${pot > 0 ? ' felt-pot-live' : ''}`}>
           <span className="felt-pot-chips" key={pot} aria-hidden="true">
             <img src="/assets/chip-orange.png" alt="" className="felt-pot-chip felt-pot-chip-0" />
             <img src="/assets/chip-blue.png" alt="" className="felt-pot-chip felt-pot-chip-1" />
           </span>
-          <span className="felt-pot-amount">POT {shownPot.toLocaleString()}</span>
+          <span className="felt-pot-label">TOTAL POT</span>
+          <span className="felt-pot-amount">{shownPot.toLocaleString()}</span>
         </div>
         <div className="felt-cards">
           {[0, 1, 2, 3, 4].map((i) => {

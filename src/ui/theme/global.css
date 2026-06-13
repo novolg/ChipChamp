@@ -14,6 +14,9 @@ body {
   color: var(--c-text);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
+  /* The app is a fixed game canvas scaled to fit (see .app-stage) — the page
+     itself never scrolls; long lesson bodies scroll inside the frame. */
+  overflow: hidden;
 }
 
 h1,
@@ -38,20 +41,32 @@ h3 {
   z-index: 0;
   opacity: 0.9;
 }
+/* Flex-centers the unscaled 1240x880 frame; the frame itself shrinks via
+   transform: scale(var(--fit-scale)) (set from useFitScale in App.tsx), so
+   layout always happens at design size and only the composite is scaled.
+   Flex centering (not grid place-items) is deliberate: when the viewport is
+   narrower than the 1240px design width, the frame's layout box overflows the
+   container, and flex `justify-content: center` overflows it symmetrically so
+   the scaled composite stays centered. A grid auto-track left-aligns the
+   oversized box instead, pushing the scaled frame off-centre and clipping it. */
 .app-stage {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: flex-start;
-  padding: 48px 24px 72px;
+  padding: 0;
 }
 
 /* ============ Universal button system ============
    Gradient fill + white Kanit-italic label, soft colored drop shadow.
-   :active inverts to a light press state and sinks 2–3px. */
+   Hover springs up with a glow ramp + sheen sweep; :active inverts to a
+   light press state and sinks (snappier than the lift). */
 .btn {
+  position: relative;
+  overflow: hidden; /* clips the ::after sheen strip */
   border: none;
   border-radius: var(--r-btn);
   padding: 14px 22px;
@@ -63,21 +78,52 @@ h3 {
   color: #fff;
   cursor: pointer;
   text-align: center;
-  transition: transform 0.08s, background 0.08s, color 0.08s, box-shadow 0.08s,
-    filter 0.08s;
+  transition: transform var(--t-hover) var(--ease-snap), background var(--t-tap),
+    color var(--t-tap), filter var(--t-hover),
+    box-shadow var(--t-hover) var(--ease-out);
+}
+/* Sheen strip parked off-screen left. The base rule has NO transition, so
+   mouse-out snaps it back invisibly — the sweep only ever plays left-to-right. */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.3) 48%,
+    rgba(255, 255, 255, 0.1) 52%, transparent 65%);
+  transform: translateX(-130%);
 }
 .btn:hover:not(:disabled) {
   filter: brightness(1.08);
-  transform: translateY(-1px);
+  transform: translateY(var(--hover-lift)) scale(1.015);
+}
+.btn:hover:not(:disabled)::after {
+  transform: translateX(130%);
+  transition: transform var(--t-sheen) ease-out;
 }
 .btn:active:not(:disabled) {
-  transform: translateY(2px);
+  transform: translateY(var(--press-sink)) scale(0.985);
+  transition-duration: var(--t-tap);
   background: var(--c-press-bg);
   color: var(--c-press-text);
+}
+.btn:active::after,
+.btn:disabled::after {
+  opacity: 0;
 }
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+/* Keyboard parity: focus pops like a press (static outline stays for a11y). */
+.btn:focus-visible {
+  animation: focus-pop var(--t-pop) var(--ease-spring);
+}
+@keyframes focus-pop {
+  0% { transform: scale(0.96); }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); }
 }
 
 .btn-blue {
@@ -107,6 +153,28 @@ h3 {
   border: 2px solid var(--c-orange);
   box-shadow: 0 0 16px rgba(255, 165, 2, 0.12);
 }
+/* Hover glow ramp per variant (element box-shadow is not clipped by its own
+   overflow:hidden, unlike a pseudo's — see .btn transition for the ramp). */
+.btn-blue:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 14px 32px rgba(0, 110, 253, 0.55);
+}
+.btn-orange:hover:not(:disabled) {
+  box-shadow: 0 14px 32px rgba(255, 159, 0, 0.55);
+}
+.btn-red:hover:not(:disabled) {
+  box-shadow: 0 14px 32px rgba(242, 57, 78, 0.55);
+}
+.btn-dark:hover:not(:disabled) {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+.btn-outline-green:hover:not(:disabled) {
+  box-shadow: 0 0 16px rgba(46, 213, 115, 0.35);
+}
+.btn-outline-orange:hover:not(:disabled) {
+  box-shadow: 0 0 16px rgba(255, 165, 2, 0.3);
+}
+
 .btn-blue:active:not(:disabled),
 .btn-orange:active:not(:disabled),
 .btn-red:active:not(:disabled),
@@ -129,6 +197,14 @@ h3 {
 @keyframes btn-pulse {
   0%, 100% { box-shadow: 0 10px 22px rgba(0, 110, 253, 0.3); }
   50% { box-shadow: 0 10px 30px rgba(0, 110, 253, 0.6), 0 0 0 4px rgba(0, 110, 253, 0.18); }
+}
+/* The pulsing CTA glints on its own, once per pulse cycle (slot-machine gold). */
+.btn-pulse:not(:disabled)::after {
+  animation: sheen-sweep 2s ease-out 0.5s infinite;
+}
+@keyframes sheen-sweep {
+  0% { transform: translateX(-130%); }
+  45%, 100% { transform: translateX(130%); }
 }
 
 /* ---- Keyboard focus ---- */
@@ -158,6 +234,20 @@ h3 {
   0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
   85% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--drift, 0px), 380px) rotate(var(--spin, 320deg)); }
+}
+
+/* ---- Shared entrance keyframes (used across screens.css and table.css) ---- */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes chip-spin {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) rotate(-200deg) scale(0.4);
+  }
 }
 
 /* ---- Reduced motion: keep state changes, drop the theatrics ---- */

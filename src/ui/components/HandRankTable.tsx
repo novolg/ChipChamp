@@ -78,7 +78,8 @@ export function HandRankTable() {
             >
               <td>{i + 1}</td>
               <td>{HAND_CATEGORY_LABEL[cat]}</td>
-              <td className="rank-row-chevron" aria-hidden="true">{cat === selected ? '▸' : ''}</td>
+              {/* Always rendered; CSS reveals it on hover / active row. */}
+              <td className="rank-row-chevron" aria-hidden="true">▸</td>
             </tr>
           ))}
         </tbody>

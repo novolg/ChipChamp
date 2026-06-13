@@ -5,12 +5,15 @@
 
 /* ---- Frame ---- */
 .frame {
+  /* Fixed 1240x880 game canvas: layout always happens at design size, then the
+     whole frame is uniformly transform-scaled to fit the viewport (--fit-scale
+     comes from useFitScale via .app-stage). Both modes share the one height so
+     switching between Learn and Free Play doesn't resize the frame. */
   width: 1240px;
-  max-width: 100%;
-  /* Both modes share one window height (Play's natural height) so switching
-     between Learn and Free Play doesn't resize the frame. Flex column lets the
-     body (and the Learn grid inside it) fill that height. */
-  min-height: 880px;
+  height: 880px;
+  flex: none;
+  transform: scale(var(--fit-scale, 1));
+  will-change: transform;
   display: flex;
   flex-direction: column;
   border-radius: var(--r-screen);
@@ -51,30 +54,60 @@
   font-weight: 700;
   color: var(--c-text-faint);
 }
-.frame-right { display: flex; align-items: center; gap: 18px; }
+/* 20px so the chip protruding from the HUD capsule clears the nav switcher. */
+.frame-right { display: flex; align-items: center; gap: 20px; }
 
-/* ---- Progress HUD: chip counter + run bar (always in the header) ---- */
-.hud { display: flex; align-items: center; gap: 8px; }
+/* ---- Progress HUD: chip-anchored sunken capsule + glossy run bar ---- */
+.hud {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px 5px 28px;
+  border-radius: var(--r-pill);
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+}
+/* Chip sits half-outside the capsule edge, with a lazy idle bob. Every
+   keyframe must carry the translateY(-50%) centering offset. */
 .hud-chip {
-  width: 26px;
-  height: 26px;
-  filter: drop-shadow(0 2px 0 #b87500);
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  filter: drop-shadow(0 2px 0 #b87500) drop-shadow(0 0 8px rgba(255, 165, 2, 0.35));
+  animation: chip-bob 4s ease-in-out infinite;
+}
+@keyframes chip-bob {
+  0%, 100% { transform: translateY(-50%) rotate(0deg); }
+  50% { transform: translateY(calc(-50% - 2px)) rotate(8deg); }
+}
+/* Hovering the HUD coin-flips the chip; bob resumes on hover-out. */
+.hud:hover .hud-chip {
+  animation: chip-flip 0.6s var(--ease-out);
+}
+@keyframes chip-flip {
+  from { transform: translateY(-50%) rotateY(0deg); }
+  to { transform: translateY(-50%) rotateY(360deg); }
 }
 .hud-count {
   font-family: var(--font-mono);
   font-size: 15px;
   font-weight: 700;
   color: var(--c-orange-hi);
-  animation: pop-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+  animation: pop-in 0.3s var(--ease-spring) backwards;
 }
 .hud-count-total {
   font-size: 11px;
   color: var(--c-text-faint);
 }
 .hud-bar {
-  width: 90px;
-  height: 8px;
-  border-radius: 4px;
+  position: relative;
+  width: 110px;
+  height: 10px;
+  border-radius: 5px;
   background: var(--c-surface-sunken);
   box-shadow: var(--sh-sunken);
   overflow: hidden;
@@ -82,14 +115,35 @@
 .hud-bar-fill {
   display: block;
   height: 100%;
-  border-radius: 4px;
+  border-radius: 5px;
   background: linear-gradient(90deg, var(--c-orange), var(--c-orange-hi));
-  box-shadow: 0 0 10px rgba(255, 165, 2, 0.5);
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0 10px rgba(255, 165, 2, 0.5);
+  transition: width 0.6s var(--ease-out);
+}
+/* Periodic gloss sweep across the bar (translate/opacity only). */
+.hud-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 24px;
+  border-radius: 5px;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: hud-sheen-sweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes hud-sheen-sweep {
+  0%, 55% { transform: translateX(-26px); opacity: 0; }
+  60% { opacity: 1; }
+  90%, 100% { transform: translateX(114px); opacity: 0; }
 }
 
-/* Segmented Learn / Free Play switcher (sunken track + sliding active pill). */
+/* Segmented Learn / Free Play switcher: sunken track + a sliding spring thumb
+   (.nav-thumb IS the active surface; segs are fixed-width so it lands true). */
 .nav-switch {
+  position: relative;
   display: flex;
   gap: 4px;
   padding: 4px;
@@ -97,8 +151,24 @@
   background: var(--c-surface-sunken);
   box-shadow: var(--sh-sunken);
 }
+.nav-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: 104px;
+  border-radius: 9px;
+  background: var(--c-blue-grad);
+  box-shadow: 0 6px 14px rgba(0, 110, 253, 0.35);
+  transition: transform 240ms var(--ease-snap);
+}
+.nav-thumb[data-pos='free'] { transform: translateX(108px); } /* 104px seg + 4px gap */
 .nav-seg {
-  padding: 7px 18px;
+  position: relative;
+  z-index: 1;
+  width: 104px;
+  padding: 7px 0;
+  text-align: center;
   border: none;
   border-radius: 9px;
   background: transparent;
@@ -109,17 +179,32 @@
   font-size: 14px;
   letter-spacing: 0.5px;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, box-shadow 0.12s, filter 0.08s;
+  transition: color var(--t-hover), transform var(--t-hover) var(--ease-snap);
 }
-.nav-seg:hover:not(.nav-seg-active) { color: var(--c-text-2); }
-.nav-seg-active {
-  background: var(--c-blue-grad);
-  color: #fff;
-  box-shadow: 0 6px 14px rgba(0, 110, 253, 0.35);
+.nav-seg:hover:not(.nav-seg-active) {
+  color: var(--c-text-2);
+  transform: translateY(-1px);
 }
+.nav-seg:active { transform: translateY(0) scale(0.95); }
+.nav-seg-active { color: #fff; }
 
 .frame-learn .frame-body { padding: 36px 32px 44px; }
 .frame-table .frame-body { padding: 24px 32px 28px; }
+
+/* The frame is a fixed 880px canvas: long lesson/quiz content scrolls INSIDE
+   the body while the header chrome stays put (the page itself never scrolls). */
+.frame-learn .frame-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border-2) transparent;
+}
+.frame-learn .frame-body::-webkit-scrollbar { width: 10px; }
+.frame-learn .frame-body::-webkit-scrollbar-thumb {
+  background: var(--c-border-2);
+  border-radius: 5px;
+  border: 2px solid var(--c-surface);
+}
 
 /* ============ Learning Path ============ */
 .learn { display: flex; flex-direction: column; gap: 18px; flex: 1; min-height: 0; }
@@ -143,7 +228,7 @@
   gap: 12px;
   min-height: 0;
   animation: tile-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
-  transition: transform 0.18s, box-shadow 0.18s;
+  transition: transform 180ms var(--ease-out), box-shadow 180ms;
 }
 @keyframes tile-in {
   from {
@@ -151,9 +236,36 @@
     transform: translateY(18px) scale(0.96);
   }
 }
-.tile-active:hover,
-.tile-complete:hover {
-  transform: translateY(-3px);
+/* Cursor-aware 3D tilt (--mx/--my are normalized cursor vars written by
+   LearningPathHome) with a counter-parallax glyph that sells the depth. */
+@media (hover: hover) {
+  .tile {
+    --mx: 0;
+    --my: 0;
+    will-change: transform;
+  }
+  .tile-active:hover,
+  .tile-complete:hover {
+    transform: perspective(700px) rotateX(calc(var(--my) * -4deg))
+      rotateY(calc(var(--mx) * 5deg)) translateY(-3px);
+  }
+  .tile-active:hover .tile-glyph,
+  .tile-complete:hover .tile-glyph {
+    transform: translate(calc(var(--mx) * -12px), calc(var(--my) * -10px))
+      rotate(-4deg) scale(1.08);
+    opacity: 0.16;
+  }
+}
+/* Locked tiles answer clicks with a deny shake (class set by LearningPathHome).
+   tile-in stays at list position 0 with the same name so adding/removing the
+   class never restarts the entrance; the shake's 0s delay is set inline. */
+.tile-deny {
+  animation: tile-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards,
+    option-shake 0.4s ease-in-out;
+}
+.tile-deny .tile-lock-cap {
+  color: var(--c-red);
+  transition: color var(--t-tap);
 }
 .tile-glyph {
   position: absolute;
@@ -164,6 +276,7 @@
   opacity: 0.06;
   pointer-events: none;
   user-select: none;
+  transition: transform 220ms var(--ease-out), opacity 220ms;
 }
 .tile-active .tile-glyph { color: var(--c-blue-text); opacity: 0.1; }
 .tile-complete .tile-glyph { color: var(--c-green); opacity: 0.09; }
@@ -205,12 +318,14 @@
   height: 24px;
   opacity: 0.55;
   filter: drop-shadow(0 2px 0 #14141e);
+  transition: transform var(--t-hover) var(--ease-spring);
 }
 .learn-chip-earned {
   opacity: 1;
   filter: drop-shadow(0 2px 0 #b87500) drop-shadow(0 0 8px rgba(255, 165, 2, 0.4));
   animation: pop-in 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
 }
+.learn-chip-earned:hover { transform: translateY(-2px) rotate(10deg); }
 .learn-chip-count { font-size: 13px; font-weight: 700; color: var(--c-text-muted); }
 .tile-active {
   background: linear-gradient(180deg, #1e2334 0%, #1d1d2a 100%);
@@ -261,9 +376,8 @@
   color: var(--c-text-faint);
 }
 
-@media (max-width: 760px) {
-  .learn-grid { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
-}
+/* No viewport-keyed reflow: the frame is a fixed 1240px canvas that only
+   scales via --fit-scale, so the 3-col grid is always correct inside it. */
 
 /* ============ Tutorial sub-screens (inside the learn frame) ============ */
 .screen { max-width: 760px; margin: 0 auto; width: 100%; }
@@ -326,13 +440,8 @@
   width: 64px;
   height: 64px;
   filter: drop-shadow(0 4px 0 #b87500) drop-shadow(0 0 20px rgba(255, 165, 2, 0.6));
+  /* chip-spin keyframes are shared from global.css */
   animation: chip-spin 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
-}
-@keyframes chip-spin {
-  from {
-    opacity: 0;
-    transform: translateY(-30px) rotate(-200deg) scale(0.4);
-  }
 }
 .celebrate-title {
   font-size: 24px;
@@ -400,7 +509,18 @@
   background: rgba(0, 110, 253, 0.14);
   box-shadow: inset 3px 0 0 var(--c-blue);
 }
-.rank-row-chevron { width: 16px; color: var(--c-blue-text); }
+.rank-row-chevron {
+  width: 16px;
+  color: var(--c-blue-text);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: transform var(--t-hover) var(--ease-snap), opacity var(--t-hover);
+}
+.rank-row:hover .rank-row-chevron,
+.rank-row-active .rank-row-chevron {
+  opacity: 1;
+  transform: translateX(0);
+}
 .rank-preview {
   position: sticky;
   top: 12px;
@@ -423,10 +543,6 @@
   line-height: 1.5;
   color: var(--c-text-2);
   text-align: center;
-}
-@media (max-width: 700px) {
-  .rank-explorer { grid-template-columns: 1fr; }
-  .rank-preview { position: static; }
 }
 
 /* ---- Quiz (one question at a time, instant feedback) ---- */
@@ -454,6 +570,10 @@
 .quiz-dot-current {
   background: var(--c-blue);
   box-shadow: 0 0 10px rgba(0, 110, 253, 0.5);
+  animation: dot-breathe 1.6s ease-in-out infinite;
+}
+@keyframes dot-breathe {
+  50% { transform: scale(1.35); }
 }
 .quiz-dot-right { background: var(--c-green); box-shadow: 0 0 8px rgba(46, 213, 115, 0.4); }
 .quiz-dot-wrong { background: var(--c-red); box-shadow: 0 0 8px rgba(255, 71, 87, 0.4); }
@@ -470,7 +590,7 @@
   border-radius: 4px;
   background: linear-gradient(90deg, var(--c-blue), var(--c-blue-text));
   box-shadow: 0 0 10px rgba(0, 110, 253, 0.5);
-  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width 0.4s var(--ease-out);
 }
 .quiz-q { margin-bottom: var(--sp-6); }
 .quiz-q-card {
@@ -485,6 +605,7 @@
 .quiz-prompt { font-weight: 700; line-height: 1.5; }
 .quiz-options { display: flex; flex-direction: column; gap: var(--sp-2); }
 .quiz-option {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -497,9 +618,38 @@
   cursor: pointer;
   font-size: 14px;
   font-family: var(--font-ui);
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  /* Staggered reveal replays per question (quiz-q-card remounts via quiz-slide). */
+  animation: option-in 0.3s var(--ease-out) backwards;
 }
-.quiz-option:hover:not(:disabled) { border-color: var(--c-blue); }
+.quiz-option:nth-child(2) { animation-delay: 50ms; }
+.quiz-option:nth-child(3) { animation-delay: 100ms; }
+.quiz-option:nth-child(4) { animation-delay: 150ms; }
+@keyframes option-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+/* Hover accent bar grows from center-left. */
+.quiz-option::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--c-blue);
+  transform: scaleY(0);
+  transition: transform var(--t-hover) var(--ease-snap);
+}
+.quiz-option:hover:not(:disabled) {
+  border-color: var(--c-blue);
+  transform: translateX(3px);
+}
+.quiz-option:hover:not(:disabled)::before { transform: scaleY(1); }
+.quiz-option:active:not(:disabled) { transform: translateX(3px) scale(0.99); }
 .quiz-option-key {
   flex: none;
   width: 24px;
@@ -512,14 +662,19 @@
   font-weight: 700;
   background: var(--c-surface-sunken);
   color: var(--c-text-muted);
+  transition: transform var(--t-hover) var(--ease-spring), background var(--t-hover),
+    color var(--t-hover);
+}
+.quiz-option:hover:not(:disabled) .quiz-option-key {
+  transform: scale(1.15) rotate(-4deg);
+  background: var(--c-blue);
+  color: #fff;
 }
 .quiz-option-correct { border-color: var(--c-green); background: rgba(46, 213, 115, 0.12); }
 .quiz-option-correct .quiz-option-key { background: var(--c-green); color: var(--c-press-text); }
 .quiz-option-wrong { border-color: var(--c-red); background: rgba(255, 71, 87, 0.12); }
 .quiz-option-wrong .quiz-option-key { background: var(--c-red); color: #fff; }
-.quiz-option:hover:not(:disabled) { transform: translateX(3px); }
-.quiz-option { transition: border-color 0.15s, background 0.15s, transform 0.15s; }
-.quiz-option-correct { animation: option-right 0.35s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.quiz-option-correct { animation: option-right 0.35s var(--ease-spring); }
 .quiz-option-wrong { animation: option-shake 0.4s ease-in-out; }
 @keyframes option-right {
   0% { transform: scale(1); }
@@ -547,12 +702,7 @@
 .quiz-feedback-right .quiz-feedback-head { color: var(--c-green); }
 .quiz-feedback-wrong .quiz-feedback-head { color: var(--c-red); }
 .quiz-next { margin-top: var(--sp-3); }
-@keyframes rise-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-}
+/* rise-in keyframes are shared from global.css */
 .quiz-result-head { font-size: 18px; font-weight: 800; margin: 0 0 var(--sp-1); }
 .quiz-pass .quiz-result-head { color: var(--c-green); }
 .quiz-fail .quiz-result-head { color: var(--c-orange); }

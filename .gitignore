@@ -23,3 +23,6 @@ docs/superpowers/
 
 # design handoff archive (assets already extracted to public/assets/)
 ChipChamp.zip
+
+# design reference screenshots — third-party, local-only design input
+references/
