@@ -63,8 +63,6 @@ export function LearningPathHome() {
     complete: isStepComplete(step, progress, QUIZZES_BY_ID),
     unlocked: isStepUnlocked(step, LEARNING_PATH, progress, QUIZZES_BY_ID),
   }));
-  const doneCount = steps.filter((s) => s.complete).length;
-  const total = steps.length;
   const currentIndex = steps.findIndex((s) => s.unlocked && !s.complete);
 
   return (
@@ -109,23 +107,6 @@ export function LearningPathHome() {
               </div>
             );
           })}
-        </div>
-
-        <div className="learn-strip">
-          <span className="learn-run-label">YOUR RUN</span>
-          <div className="learn-chips">
-            <span className="learn-chip-row" aria-hidden="true">
-              {Array.from({ length: total }).map((_, i) => (
-                <img
-                  key={i}
-                  src={i < doneCount ? '/assets/chip-orange.png' : '/assets/chip-dark.png'}
-                  alt=""
-                  className={`learn-chip${i < doneCount ? ' learn-chip-earned' : ''}`}
-                />
-              ))}
-            </span>
-            <span className="learn-chip-count">{doneCount} of {total} chips earned</span>
-          </div>
         </div>
       </div>
     </AppFrame>

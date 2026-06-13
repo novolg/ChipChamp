@@ -5,7 +5,6 @@ import { useProgressStore } from '../store/progressStore';
 import { LEARNING_PATH } from '../../tutorial/content/learningPath';
 import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
 import { isStepComplete } from '../../tutorial/progress/progressReducer';
-import { useCountUp } from '../hooks/useCountUp';
 import { useSound } from '../hooks/useSound';
 import { playSfx } from '../lib/sound';
 
@@ -59,13 +58,13 @@ interface AppFrameProps {
   children: ReactNode;
 }
 
-/** Chip counter + run progress bar, always visible in the header (game HUD).
- *  Fires a level-up burst + sting the first time it observes a higher count. */
-function ProgressHud() {
+/** Run-progress chips in the header: one chip per learning step, lit as you
+ *  complete them. Each coin-flips on hover; the newest earned chip blooms a
+ *  burst + sting the first time we observe a higher count this session. */
+function ProgressChips() {
   const progress = useProgressStore((s) => s.progress);
   const done = LEARNING_PATH.filter((step) => isStepComplete(step, progress, QUIZZES_BY_ID)).length;
   const total = LEARNING_PATH.length;
-  const shown = useCountUp(done, 600);
   const [burst, setBurst] = useState(0);
 
   useEffect(() => {
@@ -81,31 +80,47 @@ function ProgressHud() {
   }, [done]);
 
   return (
-    <div className={`hud${burst ? ' hud-levelup' : ''}`} title={`${done} of ${total} steps complete`}>
-      <img src="/assets/chip-orange.png" alt="" className="hud-chip" />
-      <AnimatePresence>
-        {burst > 0 && (
-          <motion.span
-            key={burst}
-            className="hud-burst"
-            aria-hidden="true"
-            initial={{ opacity: 0.85, scale: 0.35 }}
-            animate={{ opacity: 0, scale: 2.1 }}
-            transition={{ duration: 0.7, ease: 'easeOut' }}
-            onAnimationComplete={() => setBurst(0)}
-          />
-        )}
-      </AnimatePresence>
-      <span className="hud-count" key={done}>{shown}<span className="hud-count-total">/{total}</span></span>
-      <div className="hud-bar" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total}>
-        <span className="hud-bar-fill" style={{ width: `${(done / total) * 100}%` }} />
-      </div>
+    <div
+      className="hdr-chips"
+      title={`${done} of ${total} steps complete`}
+      role="progressbar"
+      aria-valuenow={done}
+      aria-valuemin={0}
+      aria-valuemax={total}
+    >
+      {Array.from({ length: total }).map((_, i) => {
+        const earned = i < done;
+        return (
+          <span key={i} className="hdr-chip-wrap">
+            <img
+              src={earned ? '/assets/chip-orange.png' : '/assets/chip-dark.png'}
+              alt=""
+              className={`hdr-chip${earned ? ' hdr-chip-earned' : ''}`}
+            />
+            {earned && i === done - 1 && (
+              <AnimatePresence>
+                {burst > 0 && (
+                  <motion.span
+                    key={burst}
+                    className="hdr-burst"
+                    aria-hidden="true"
+                    initial={{ opacity: 0.85, scale: 0.35 }}
+                    animate={{ opacity: 0, scale: 2.2 }}
+                    transition={{ duration: 0.7, ease: 'easeOut' }}
+                    onAnimationComplete={() => setBurst(0)}
+                  />
+                )}
+              </AnimatePresence>
+            )}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
 /** The product's screen chrome: a centered rounded frame floating on the suit
- *  field, with the logo wordmark, progress HUD and LEARN / FREE PLAY navigation. */
+ *  field, with the logo wordmark, progress chips and LEARN / PLAY navigation. */
 export function AppFrame({ variant = 'learn', active, headerExtra, children }: AppFrameProps) {
   const go = useNavStore((s) => s.go);
 
@@ -117,7 +132,7 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
           {headerExtra && <span className="frame-header-extra">{headerExtra}</span>}
         </div>
         <div className="frame-right">
-          <ProgressHud />
+          <ProgressChips />
           <SfxToggle />
           <nav className="nav-switch" role="tablist">
             {/* Sliding active surface; segs are transparent on top of it. */}
@@ -136,7 +151,7 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
               className={`nav-seg${active === 'free' ? ' nav-seg-active' : ''}`}
               onClick={() => go({ name: 'free' })}
             >
-              FREE PLAY
+              PLAY
             </button>
           </nav>
         </div>
