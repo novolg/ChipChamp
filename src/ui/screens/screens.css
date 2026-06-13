@@ -678,7 +678,7 @@
 .quiz-option-wrong { animation: option-shake 0.4s ease-in-out; }
 @keyframes option-right {
   0% { transform: scale(1); }
-  45% { transform: scale(1.025); }
+  35% { transform: scale(1.04); box-shadow: 0 0 0 2px var(--c-green), 0 0 18px rgba(46, 213, 115, 0.5); }
   100% { transform: scale(1); }
 }
 @keyframes option-shake {

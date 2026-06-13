@@ -21,7 +21,8 @@ export type SfxName =
   | 'lose'
   | 'levelUp'
   | 'star'
-  | 'lock';
+  | 'lock'
+  | 'incorrect';
 
 const STORAGE_KEY = 'cc.muted';
 const MASTER_GAIN = 0.22; // keep cues subtle — this is a learning app, not a casino
@@ -226,6 +227,14 @@ const VOICES: Record<SfxName, (c: { ctx: AudioContext; master: GainNode }, o?: V
   lock: (c) => {
     tone(c, { freq: 140, to: 90, type: 'square', dur: 0.12, gain: 0.3 });
     noise(c, { dur: 0.05, band: 2400, q: 3, gain: 0.16, delay: 0.04 });
+  },
+
+  // Gentle "not quite" for a quiz miss — soft falling two-note, deliberately
+  // NOT the bleak descending `lose` trombone (a wrong answer is teaching, not
+  // a stack-loss punishment).
+  incorrect: (c) => {
+    tone(c, { freq: 392, type: 'sine', dur: 0.12, gain: 0.22 });
+    tone(c, { freq: 349.23, type: 'sine', dur: 0.16, gain: 0.2, delay: 0.1 });
   },
 };
 

@@ -54,7 +54,7 @@ export function QuizScreen({ quizId }: { quizId: string }) {
     const right = optId === q.correctOptionId;
     setPicked(optId);
     setResults((r) => [...r, right]);
-    playSfx(right ? 'star' : 'lose');
+    playSfx(right ? 'star' : 'incorrect');
   };
 
   const next = () => {
