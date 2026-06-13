@@ -7,7 +7,7 @@ import { ActionControls } from '../components/controls/ActionControls';
 import { CoachingRail } from '../components/coaching/CoachingRail';
 import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
-import { useTableSfx } from '../hooks/useTableSfx';
+import { useTableSfx, payoutTier } from '../hooks/useTableSfx';
 import { canDealNextHand, heroIsBusted } from '../lib/derive';
 import { playSfx } from '../lib/sound';
 import type { GameState } from '../../engine/types';
@@ -123,6 +123,11 @@ export function FreePlayScreen() {
   const canContinue = canDealNextHand(game);
   const heroBusted = heroIsBusted(game);
 
+  // Reward magnitude — drives confetti density and the ray-burst gate so a
+  // monster pot reads bigger than a folded blind. (Audio scales in useTableSfx.)
+  const winTier = win?.heroWon ? payoutTier(win.amount, game.bigBlind) : 'small';
+  const CONFETTI: Record<string, number> = { small: 16, medium: 28, big: 38, monster: 56 };
+
   const headerExtra = `BLINDS ${game.smallBlind}/${game.bigBlind} · HAND ${game.handNumber}`;
 
   return (
@@ -132,9 +137,10 @@ export function FreePlayScreen() {
           <Table game={game} thinkingSeatId={botThinking ? game.toActSeatId : null}>
             {win && (
               <div className="win-overlay" key={game.handNumber}>
-                {win.heroWon && <Confetti count={32} />}
-                {/* Slot-machine gold ray-burst behind the hero banner. */}
-                {win.heroWon && (
+                {win.heroWon && <Confetti count={CONFETTI[winTier]} />}
+                {/* Slot-machine gold ray-burst — reserved for medium+ pots so
+                    it reads as a bigger moment than a routine fold-out win. */}
+                {win.heroWon && winTier !== 'small' && (
                   <div className="win-burst" aria-hidden="true">
                     <i className="win-burst-rays" />
                   </div>

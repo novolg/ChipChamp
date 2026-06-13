@@ -2,6 +2,22 @@ import { useEffect, useRef } from 'react';
 import type { ActionType, GameState } from '../../engine/types';
 import { playSfx, type SfxName } from '../lib/sound';
 
+export type PayoutTier = 'small' | 'medium' | 'big' | 'monster';
+
+/** Bucket a won pot (in chips) into a reward tier by its size in big blinds.
+ *  Discrete on purpose: replay-stable and instantly recognizable. */
+export function payoutTier(amount: number, bb: number): PayoutTier {
+  if (bb <= 0 || amount <= 0) return 'small';
+  const x = amount / bb;
+  if (x >= 45) return 'monster';
+  if (x >= 20) return 'big';
+  if (x >= 8) return 'medium';
+  return 'small';
+}
+
+const TIER_CLINKS: Record<PayoutTier, number> = { small: 2, medium: 3, big: 4, monster: 6 };
+const TIER_SEMITONES: Record<PayoutTier, number> = { small: 0, medium: 1, big: 2, monster: 4 };
+
 /* Watches game state and fires SFX for the moments that matter: new deals,
  * each player action, community cards landing, the player's turn, and payout.
  * Purely observational — diffs against the previous snapshot, so it survives
@@ -29,6 +45,14 @@ interface Snap {
 
 const heroWon = (game: GameState): boolean =>
   game.log.some((e) => /^You wins /.test(e.note ?? ''));
+
+/** Sum the hero's won chips this hand, parsed from the same log notes the
+ *  win banner uses (handles split pots across multiple "You wins N" entries). */
+const heroWinAmount = (game: GameState): number =>
+  game.log
+    .map((e) => e.note?.match(/^You wins (\d+)/))
+    .filter((m): m is RegExpMatchArray => m != null)
+    .reduce((s, m) => s + Number(m[1]), 0);
 
 const heroToAct = (game: GameState): boolean =>
   game.phase === 'betting' &&
@@ -107,11 +131,13 @@ export function useTableSfx(game: GameState | null): void {
       }
     }
 
-    // Payout — win sting for the hero, a quiet rake otherwise (no sad trombone).
+    // Payout — graded win sting for the hero (clinks + arpeggio pitch scale with
+    // pot size), a quiet rake otherwise (no sad trombone).
     if (snap.phase === 'handComplete' && prev.phase !== 'handComplete') {
       if (heroWon(game)) {
-        playSfx('win');
-        clinks(3);
+        const tier = payoutTier(heroWinAmount(game), game.bigBlind);
+        playSfx('win', { semitones: TIER_SEMITONES[tier] });
+        clinks(TIER_CLINKS[tier]);
       } else {
         clinks(2);
       }

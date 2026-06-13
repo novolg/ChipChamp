@@ -144,7 +144,13 @@ function noise(c: { ctx: AudioContext; master: GainNode }, o: NoiseOpts): void {
 
 // ---- cue recipes ------------------------------------------------------------
 
-const VOICES: Record<SfxName, (c: { ctx: AudioContext; master: GainNode }) => void> = {
+/** Per-cue playback options. `semitones` transposes pitched voices (the win
+ *  arpeggio) so the same cue can scale with reward magnitude. */
+export interface VoiceOpts {
+  semitones?: number;
+}
+
+const VOICES: Record<SfxName, (c: { ctx: AudioContext; master: GainNode }, o?: VoiceOpts) => void> = {
   click: (c) => tone(c, { freq: 660, to: 880, type: 'triangle', dur: 0.05, gain: 0.3 }),
 
   chipClink: (c) => {
@@ -192,10 +198,11 @@ const VOICES: Record<SfxName, (c: { ctx: AudioContext; master: GainNode }) => vo
     tone(c, { freq: 880, type: 'sine', dur: 0.16, gain: 0.22, delay: 0.1 });
   },
 
-  win: (c) => {
-    // major arpeggio C5–E5–G5–C6
+  win: (c, o) => {
+    // major arpeggio C5–E5–G5–C6, transposed up by o.semitones for bigger pots
+    const k = Math.pow(2, (o?.semitones ?? 0) / 12); // equal-temperament transpose
     [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
-      tone(c, { freq: f, type: 'triangle', dur: 0.4 - i * 0.04, gain: 0.34, delay: i * 0.08 }),
+      tone(c, { freq: f * k, type: 'triangle', dur: 0.4 - i * 0.04, gain: 0.34, delay: i * 0.08 }),
     );
   },
 
@@ -224,13 +231,13 @@ const VOICES: Record<SfxName, (c: { ctx: AudioContext; master: GainNode }) => vo
 
 // ---- public API -------------------------------------------------------------
 
-export function playSfx(name: SfxName): void {
+export function playSfx(name: SfxName, opts?: VoiceOpts): void {
   if (muted) return;
   const c = ensureCtx();
   if (!c) return;
   if (c.ctx.state === 'suspended') void c.ctx.resume();
   try {
-    VOICES[name](c);
+    VOICES[name](c, opts);
   } catch (e) {
     // Never let SFX break the UI, but don't swallow the cause — a voice that
     // throws is a real bug worth surfacing (rare: only on a killed node graph).
