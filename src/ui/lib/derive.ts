@@ -59,3 +59,20 @@ export function winnerNames(game: GameState): Set<string> {
     game.log.map((e) => e.note?.match(/^(.+?) wins /)?.[1]).filter((n): n is string => !!n),
   );
 }
+
+/** The human seat is out of chips. (Caller gates on handComplete; during an
+ *  all-in the hero can sit at 0 while still live, so this is read at hand end.) */
+export function heroIsBusted(game: GameState): boolean {
+  const hero = game.seats.find((s) => s.isHuman);
+  return !!hero && hero.stack === 0;
+}
+
+/** Whether another hand can be dealt. This is a single-player game: once the
+ *  hero is out of chips the session ends, even though the bots could keep
+ *  playing among themselves. Dealing a chip-less hero seats them 'out' with no
+ *  hole cards, which renders as placeholder cards on the felt. */
+export function canDealNextHand(game: GameState): boolean {
+  const hero = game.seats.find((s) => s.isHuman);
+  if (!hero || hero.stack === 0) return false;
+  return game.seats.filter((s) => s.stack > 0).length >= 2;
+}

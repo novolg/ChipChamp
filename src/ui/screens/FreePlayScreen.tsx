@@ -8,6 +8,7 @@ import { CoachingRail } from '../components/coaching/CoachingRail';
 import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
 import { useTableSfx } from '../hooks/useTableSfx';
+import { canDealNextHand, heroIsBusted } from '../lib/derive';
 import type { GameState } from '../../engine/types';
 
 type WinSlot = 'hero' | 'left' | 'center' | 'right';
@@ -106,8 +107,11 @@ export function FreePlayScreen() {
   const hero = game.seats.find((s) => s.isHuman);
   const heroToAct = hero && game.toActSeatId === hero.id && game.phase === 'betting';
   const handOver = game.phase === 'handComplete';
-  const canContinue = game.seats.filter((s) => s.stack > 0).length >= 2;
-  const heroBusted = hero ? hero.stack === 0 && !canContinue : false;
+  // Single-player: the session ends when the hero is out of chips, even if the
+  // bots could keep playing. Dealing a chip-less hero seats them 'out' with no
+  // hole cards (placeholder cards on the felt) — the bug this guards against.
+  const canContinue = canDealNextHand(game);
+  const heroBusted = heroIsBusted(game);
 
   const headerExtra = `BLINDS ${game.smallBlind}/${game.bigBlind} · HAND ${game.handNumber}`;
 
