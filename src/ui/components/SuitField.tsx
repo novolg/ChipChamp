@@ -16,7 +16,11 @@ export function SuitField() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const t0 = performance.now();
+    // The heaviest motion source in the app — gate it on the user's reduced-
+    // motion preference and tab visibility (CSS/Framer kill-switches can't reach
+    // a canvas rAF). t0 is mutable so it can absorb hidden time on resume.
+    const rm = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let t0 = performance.now();
 
     // Cursor + eased focus point.
     let mx = window.innerWidth / 2;
@@ -280,13 +284,40 @@ export function SuitField() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mousedown', onDown);
     window.addEventListener('resize', sizeField);
-    let raf = requestAnimationFrame(draw);
+
+    // draw() re-arms its own rAF at the end while running; start()/stop() own
+    // the on/off transitions. A static draw() repaints one frame then stops.
+    let raf = 0;
+    let hiddenAt = 0;
+    const start = () => {
+      if (raf !== 0 || rm.matches || document.hidden) return;
+      raf = requestAnimationFrame(draw);
+    };
+    const stop = () => {
+      if (raf === 0) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+    const staticFrame = () => { draw(); stop(); };
+
+    if (rm.matches) staticFrame();
+    else start();
+
+    const onVisibility = () => {
+      if (document.hidden) { hiddenAt = performance.now(); stop(); }
+      else { if (hiddenAt) t0 += performance.now() - hiddenAt; hiddenAt = 0; start(); }
+    };
+    const onRM = () => { if (rm.matches) { stop(); staticFrame(); } else start(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    rm.addEventListener?.('change', onRM);
 
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('resize', sizeField);
-      cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVisibility);
+      rm.removeEventListener?.('change', onRM);
+      stop();
     };
   }, []);
 

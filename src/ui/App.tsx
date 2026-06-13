@@ -17,7 +17,7 @@ import './screens/screens.css';
 /* Chrome controls with no contextual sound of their own get a soft click,
  * wired once via event delegation. Action buttons, tiles, lesson-complete,
  * quiz answers etc. produce their own richer cues and are deliberately absent. */
-const CLICK_SELECTOR = '.nav-seg, .link-back, .bet-preset, .bet-step, .quiz-next';
+const CLICK_SELECTOR = '.nav-seg, .link-back, .bet-preset, .bet-step, .quiz-next, .btn-pulse';
 
 export function App() {
   const view = useNavStore((s) => s.view);

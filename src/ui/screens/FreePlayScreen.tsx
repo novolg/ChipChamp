@@ -9,6 +9,7 @@ import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
 import { useTableSfx } from '../hooks/useTableSfx';
 import { canDealNextHand, heroIsBusted } from '../lib/derive';
+import { playSfx } from '../lib/sound';
 import type { GameState } from '../../engine/types';
 
 type WinSlot = 'hero' | 'left' | 'center' | 'right';
@@ -91,6 +92,15 @@ export function FreePlayScreen() {
     }
   }, [game, record]);
 
+  // One-shot "you're out" sting when the session ends with the hero busted.
+  const bustedRef = useRef(false);
+  useEffect(() => {
+    if (!game) return;
+    const out = game.phase === 'handComplete' && heroIsBusted(game);
+    if (out && !bustedRef.current) { bustedRef.current = true; playSfx('lose'); }
+    if (!out) bustedRef.current = false;
+  }, [game]);
+
   // Derived before the early return so the hook order stays stable; the
   // banner amount rolls up like a slot payout instead of snapping.
   const win = game && game.phase === 'handComplete' ? winInfo(game) : null;
@@ -170,7 +180,7 @@ export function FreePlayScreen() {
             {handOver && !canContinue && (
               <div className="game-over">
                 <p>{heroBusted ? 'You’re out of chips.' : 'Game over.'}</p>
-                <button className="btn btn-blue" onClick={() => newGame()}>NEW GAME</button>
+                <button className="btn btn-blue" onClick={() => { playSfx('click'); newGame(); }}>NEW GAME</button>
               </div>
             )}
           </div>

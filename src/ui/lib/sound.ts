@@ -48,7 +48,17 @@ function ensureCtx(): { ctx: AudioContext; master: GainNode } | null {
   ctx = new Ctor();
   master = ctx.createGain();
   master.gain.value = MASTER_GAIN;
-  master.connect(ctx.destination);
+  // Gentle brick-wall limiter: protects the busiest cues (all-in into a win,
+  // ~11 stacked voices) from clipping. Threshold sits above any single cue's
+  // peak, so a lone click and the win arpeggio are unchanged — only stacked
+  // voices duck. ~zero CPU; the standard pro fix.
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -8;
+  limiter.knee.value = 4;
+  limiter.ratio.value = 12;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.12;
+  master.connect(limiter).connect(ctx.destination);
   return { ctx, master };
 }
 

@@ -160,6 +160,9 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
     id === sb ? 'SB' : id === bb ? 'BB' : undefined;
 
   const heroBubble = hero ? bubbles.get(hero.id) : undefined;
+  // The hero's "your turn" spotlight (blue) — mirrors the bots' orange acting
+  // state so attention snaps to the player when it's their move.
+  const heroActing = hero != null && hero.id === game.toActSeatId && game.phase === 'betting';
 
   return (
     <div className="table">
@@ -237,7 +240,7 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
               </>
             )}
           </div>
-          <div className="hero-plate">
+          <div className={`hero-plate${heroActing ? ' hero-plate-acting' : ''}`}>
             <span className="seat-level seat-level-hero" key={done}>{done + 1}</span>
             <span className="hero-you">YOU</span>
             {blindOf(hero.id) && <span className="badge badge-blind">{blindOf(hero.id)}</span>}

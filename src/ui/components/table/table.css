@@ -916,6 +916,22 @@
   to { transform: translateY(-3px); }
 }
 
+/* Hero's "your turn" spotlight — blue to read as 'mine' vs the bots' orange.
+   Plate glow + 1px lift only; the hero-cards float (above) is untouched. */
+.hero-plate {
+  transition: box-shadow 220ms var(--ease-snap), border-color 220ms var(--ease-snap),
+    transform 220ms var(--ease-snap);
+}
+.hero-plate-acting {
+  border-color: var(--c-blue);
+  transform: translateY(-2px);
+  animation: hero-plate-breathe 1.3s ease-in-out infinite;
+}
+@keyframes hero-plate-breathe {
+  0%, 100% { box-shadow: 0 4px 0 var(--c-blue-edge), 0 0 22px rgba(0, 110, 253, 0.35); }
+  50% { box-shadow: 0 4px 0 var(--c-blue-edge), 0 0 34px rgba(0, 110, 253, 0.6); }
+}
+
 /* Pot glow breathes while there's money in the middle. */
 .felt-pot-live::after {
   content: '';

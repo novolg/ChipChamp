@@ -81,6 +81,7 @@ export function useTableSfx(game: GameState | null): void {
     // next snapshot diffs cleanly (the log was reset by startHand), then return.
     if (snap.hand !== prev.hand) {
       flicks(3);
+      clinks(2); // SB + BB hitting the felt, just after the deal flurry
       prevRef.current = snap;
       return;
     }
@@ -88,11 +89,14 @@ export function useTableSfx(game: GameState | null): void {
     // Community cards landing (flop = 3, turn/river = 1).
     if (snap.boardLen > prev.boardLen) flicks(snap.boardLen - prev.boardLen);
 
-    // Each new log entry's action gets its verb cue.
+    // Each new log entry's action gets its verb cue — EXCEPT the human's own
+    // actions, which ActionControls already played synchronously on press.
+    const humanSeatId = game.seats.find((s) => s.isHuman)?.id;
     if (snap.logLen > prev.logLen) {
       for (let i = prev.logLen; i < snap.logLen; i++) {
         const a = game.log[i]?.action;
-        const sfx = a && ACTION_SFX[a.type];
+        if (!a || a.seatId === humanSeatId) continue;
+        const sfx = ACTION_SFX[a.type];
         if (sfx) playSfx(sfx);
       }
     }
