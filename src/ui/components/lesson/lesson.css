@@ -268,7 +268,12 @@
   border-radius: 7px;
   background: linear-gradient(90deg, var(--c-red), #ff8a94);
   box-shadow: 0 0 14px rgba(255, 71, 87, 0.4);
-  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s ease;
+}
+/* +EV mirror of the live coach bar: green fill when the call is profitable. */
+.podds-bar-fill-good {
+  background: var(--c-green);
+  box-shadow: 0 0 12px rgba(46, 213, 115, 0.5);
 }
 .podds-bar-mark {
   position: absolute;

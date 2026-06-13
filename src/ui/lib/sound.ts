@@ -22,7 +22,8 @@ export type SfxName =
   | 'levelUp'
   | 'star'
   | 'lock'
-  | 'incorrect';
+  | 'incorrect'
+  | 'chipTick';
 
 const STORAGE_KEY = 'cc.muted';
 const MASTER_GAIN = 0.22; // keep cues subtle — this is a learning app, not a casino
@@ -158,6 +159,9 @@ const VOICES: Record<SfxName, (c: { ctx: AudioContext; master: GainNode }, o?: V
     noise(c, { dur: 0.04, band: 5200, q: 6, gain: 0.28 });
     tone(c, { freq: 2400, type: 'triangle', dur: 0.05, gain: 0.16, delay: 0.012 });
   },
+
+  // Tiny ratchet for slider drags — tighter and quieter than chipClink.
+  chipTick: (c) => noise(c, { dur: 0.025, band: 4800, q: 8, gain: 0.1 }),
 
   cardDeal: (c) => {
     noise(c, { dur: 0.09, band: 3000, q: 0.8, gain: 0.3 });
