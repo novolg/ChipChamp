@@ -1562,12 +1562,13 @@
   /* Bot seats: shrink the whole seat wholesale via transform (preserves the
      complex internal layout without rewriting every child). */
   .seat-slot { transform-origin: top center; }
-  .seat-slot-left   { left: 1vw;  top: 6px; transform: scale(0.55); }
-  .seat-slot-right  { right: 1vw; top: 6px; transform: scale(0.55); }
+  /* Side bots sit LOWER than the centre bot so every bot is the same distance
+     from its bet chips on the felt: the centre bet pill is at top:16% (close to
+     the centre bot) while the side pills are at top:22% (farther) — dropping the
+     side seats ~30px closes that gap and unifies all three bot→chips spacings. */
+  .seat-slot-left   { left: 1vw;  top: 30px; transform: scale(0.55); }
+  .seat-slot-right  { right: 1vw; top: 30px; transform: scale(0.55); }
   .seat-slot-center { left: 50%; top: 0; transform: translateX(-50%) scale(0.55); }
-  /* Drop ALL three bots' avatars to the same lower position so the avatar→plate
-     spacing is identical across seats (the felt curve made them look uneven). */
-  .botseat-avatar-wrap { top: 40px; }
 
   /* Board cards: smaller so five fit the narrow felt. */
   .pcard-board { width: 42px; height: 58px; border-radius: 7px; }
