@@ -7,6 +7,8 @@ interface CoachingRailProps {
   seatId: number;
   /** True when it's the hero's turn — advice is live. */
   active: boolean;
+  /** Mobile: render as a slim horizontal strip instead of the side rail. */
+  compact?: boolean;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -18,7 +20,7 @@ const ACTION_BTN: Record<ActionType, string> = {
   bet: 'btn-orange', raise: 'btn-orange', allin: 'btn-orange', postBlind: 'btn-blue',
 };
 
-export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
+export function CoachingRail({ game, seatId, active, compact }: CoachingRailProps) {
   const seat = game.seats.find((s) => s.id === seatId);
   const canAdvise = active && seat && seat.holeCards.length === 2 && game.phase === 'betting';
   const advice = canAdvise ? advise(game, seatId) : null;
@@ -31,7 +33,7 @@ export function CoachingRail({ game, seatId, active }: CoachingRailProps) {
     : null;
 
   return (
-    <aside className="coach">
+    <aside className={`coach${compact ? ' coach-strip' : ''}`}>
       <div className="coach-head">
         <span className="coach-title">COACH</span>
         <span className={`coach-live${advice ? ' coach-live-on' : ''}`} aria-label="live coaching" />

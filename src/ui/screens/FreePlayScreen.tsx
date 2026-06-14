@@ -7,6 +7,7 @@ import { ActionControls } from '../components/controls/ActionControls';
 import { CoachingRail } from '../components/coaching/CoachingRail';
 import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useTableSfx, payoutTier } from '../hooks/useTableSfx';
 import { canDealNextHand, heroIsBusted } from '../lib/derive';
 import { playSfx } from '../lib/sound';
@@ -32,6 +33,14 @@ const FLY: Record<WinSlot, [number, number]> = {
   left: [-300, -125],
   center: [0, -175],
   right: [300, -125],
+};
+
+/** Mobile flight vectors — shorter throws toward the portrait-layout plates. */
+const FLY_MOBILE: Record<WinSlot, [number, number]> = {
+  hero: [0, 170],
+  left: [-110, -150],
+  center: [0, -190],
+  right: [110, -150],
 };
 
 function winnerSlot(game: GameState, name: string): WinSlot {
@@ -64,6 +73,8 @@ export function FreePlayScreen() {
   const dealHand = useGameStore((s) => s.dealHand);
   const playerAction = useGameStore((s) => s.playerAction);
   const record = useProgressStore((s) => s.record);
+
+  const isMobile = useIsMobile();
 
   // Synthesised table SFX, driven off game-state changes (deals, actions,
   // streets, payout, your-turn). Observational — no effect on gameplay.
@@ -128,6 +139,8 @@ export function FreePlayScreen() {
   const winTier = win?.heroWon ? payoutTier(win.amount, game.bigBlind) : 'small';
   const CONFETTI: Record<string, number> = { small: 16, medium: 28, big: 38, monster: 56 };
 
+  const fly = isMobile ? FLY_MOBILE : FLY;
+
   const headerExtra = `BLINDS ${game.smallBlind}/${game.bigBlind} · HAND ${game.handNumber}`;
 
   return (
@@ -155,8 +168,8 @@ export function FreePlayScreen() {
                     className="chip-fly"
                     style={{
                       '--d': `${0.15 + i * 0.045}s`,
-                      '--fx': `${FLY[win.slot][0] + ((i * 53) % 44) - 22}px`,
-                      '--fy': `${FLY[win.slot][1] + ((i * 37) % 28) - 14}px`,
+                      '--fx': `${fly[win.slot][0] + ((i * 53) % 44) - 22}px`,
+                      '--fy': `${fly[win.slot][1] + ((i * 37) % 28) - 14}px`,
                     } as CSSProperties}
                   />
                 ))}
@@ -172,6 +185,10 @@ export function FreePlayScreen() {
               </div>
             )}
           </Table>
+
+          {isMobile && (
+            <CoachingRail game={game} seatId={hero?.id ?? 0} active={!!heroToAct} compact />
+          )}
 
           <div className="play-controls">
             {heroToAct && hero && (
@@ -192,7 +209,9 @@ export function FreePlayScreen() {
           </div>
         </div>
 
-        <CoachingRail game={game} seatId={hero?.id ?? 0} active={!!heroToAct} />
+        {!isMobile && (
+          <CoachingRail game={game} seatId={hero?.id ?? 0} active={!!heroToAct} />
+        )}
       </div>
     </AppFrame>
   );
