@@ -83,7 +83,9 @@ export function LearningPathHome() {
                 style={{ animationDelay: denying ? `${i * 0.05}s, 0s` : `${i * 0.05}s` }}
                 onMouseMove={locked ? undefined : trackTilt}
                 onMouseLeave={locked ? undefined : resetTilt}
-                onClick={locked ? () => denyLocked(step.id) : undefined}
+                /* Whole tile is the tap target (the inner START/REVIEW button is
+                   a visual affordance only — its click bubbles up to here). */
+                onClick={locked ? () => denyLocked(step.id) : () => open(step)}
                 onAnimationEnd={locked ? () => setDenyId(null) : undefined}
               >
                 <span className="tile-glyph" aria-hidden="true">{TYPE_GLYPH[step.type]}</span>
@@ -93,10 +95,10 @@ export function LearningPathHome() {
                 </div>
                 <div className="tile-title">{cleanTitle(step.title)}</div>
                 {state === 'active' && (
-                  <button className="btn btn-blue tile-btn btn-pulse" onClick={() => open(step)}>START</button>
+                  <button className="btn btn-blue tile-btn btn-pulse" type="button" tabIndex={-1}>START</button>
                 )}
                 {state === 'complete' && (
-                  <button className="btn btn-outline-green tile-btn" onClick={() => open(step)}>REVIEW</button>
+                  <button className="btn btn-outline-green tile-btn" type="button" tabIndex={-1}>REVIEW</button>
                 )}
                 {state === 'locked' && (
                   <div className="tile-lock-cap">

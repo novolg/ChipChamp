@@ -1542,14 +1542,14 @@
   /* Rounded rectangle (the desktop racetrack rotated), NOT an ellipse: straight
      sides with rounded corners. Radii in px so the corners stay consistent. */
   .table-felt {
-    width: min(92vw, 360px);
-    height: min(62vh, 520px);
-    border: 10px solid var(--c-felt-rail);
-    border-radius: 120px;
+    width: min(90vw, 330px);
+    height: min(53vh, 430px);
+    border: 9px solid var(--c-felt-rail);
+    border-radius: 104px;
   }
-  .table-felt-noise { border-radius: 110px; }
+  .table-felt-noise { border-radius: 96px; }
   .table-felt::before { border-radius: inherit; }
-  .table-felt::after { inset: 30px; border-radius: 88px; }
+  .table-felt::after { inset: 26px; border-radius: 78px; }
 
   /* Trim decorative clutter that crowds the small felt. */
   .felt-deck,
@@ -1571,10 +1571,20 @@
   .felt-slot { width: 42px; height: 58px; }
 
   /* Hero: slightly smaller cards, keep bottom-center. */
-  .pcard-hero { width: 74px; height: 104px; }
-  .pcard-hero .pcard-rank { font-size: 38px; }
-  .pcard-hero .pcard-suit { font-size: 23px; }
-  .hero { gap: 6px; }
+  .pcard-hero { width: 64px; height: 90px; }
+  .pcard-hero .pcard-rank { font-size: 32px; }
+  .pcard-hero .pcard-suit { font-size: 20px; }
+  .hero { gap: 5px; }
+
+  /* Action bar + buttons: tighter so the whole play screen fits comfortably. */
+  .action-bar { padding: 10px 12px 12px; gap: 8px; }
+  .action-row-buttons { gap: 8px; }
+  .action-btn { min-height: 48px; padding: 6px 0 7px; }
+  .action-btn b { font-size: 15px; }
+  .action-btn small { font-size: 10px; }
+  .bet-preset { padding: 6px 10px; font-size: 11px; }
+  .bet-label { font-size: 9px; }
+  .play-controls { gap: 8px; }
 
   /* Bet pills: re-point toward the portrait geometry and the felt centre for
      the street-end collect sweep (--cx/--cy point at pot centre). */

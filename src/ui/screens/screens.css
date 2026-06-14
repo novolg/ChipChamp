@@ -786,14 +786,19 @@
     border: none;
   }
 
-  /* Header: tighten and drop the progress chips to make room. */
-  .frame-header { height: 56px; padding: 0 14px; }
-  .frame-logo { height: 32px; }
-  .frame-right { gap: 10px; }
+  /* Header: tighten hard so the LEARN/PLAY switch always fits. Drop the
+     progress chips AND the "BLINDS · HAND" extra text (it was pushing the
+     PLAY pill off-screen). */
+  .frame-header { height: 50px; padding: 0 10px; }
+  .frame-logo { height: 26px; }
+  .frame-brand { gap: 8px; }
+  .frame-header-extra { display: none; }
+  .frame-right { gap: 8px; }
   .hdr-chips { display: none; }
-  .nav-switch { padding: 3px; }
-  .nav-seg { width: 78px; }
-  .nav-thumb { width: 78px; }
+  .sfx-toggle { width: 32px; height: 32px; }
+  .nav-switch { padding: 2px; }
+  .nav-seg { width: 64px; font-size: 12px; padding: 7px 0; }
+  .nav-thumb { width: 64px; }
 
   /* Reclaim the desktop 32px body gutters — they crowd/clip the narrow felt
      and the learn/lesson columns. The play screen keeps its own .play-grid
@@ -801,12 +806,23 @@
   .frame-learn .frame-body { padding: 16px 14px 24px; }
   .frame-table .frame-body { padding: 8px 6px 10px; }
 
-  /* Learn home: 3×3 tile grid → single column, scrolls in frame-body. */
+  /* Learn home: 3×3 tile grid → single column. Crucially, STOP the grid from
+     stretching 9 rows to fill the viewport height (that squeezed each tile
+     below its content, so `.tile{overflow:hidden}` clipped the title + the
+     START/REVIEW button — making the list look un-clickable). Size rows to
+     content and let the frame-body scroll. */
   .learn-grid {
     grid-template-columns: 1fr;
     grid-template-rows: none;
+    grid-auto-rows: min-content;
+    align-content: start;
+    flex: none;
+    min-height: auto;
     gap: 12px;
   }
+  /* Comfortable tap target; the whole tile is now clickable (see TSX). */
+  .tile { min-height: 84px; padding: 14px 16px; cursor: pointer; }
+  .tile-glyph { font-size: 78px; bottom: -16px; }
 
   /* Lesson: rank-explorer 1fr/240px → stacked. */
   .rank-explorer { grid-template-columns: 1fr; }
