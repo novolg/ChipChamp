@@ -1565,10 +1565,9 @@
   .seat-slot-left   { left: 1vw;  top: 6px; transform: scale(0.55); }
   .seat-slot-right  { right: 1vw; top: 6px; transform: scale(0.55); }
   .seat-slot-center { left: 50%; top: 0; transform: translateX(-50%) scale(0.55); }
-  /* Drop the side bots' avatars down so they sit right above their name plates
-     (matching the chip-to-avatar spacing). Center bot is left as-is. */
-  .seat-slot-left .botseat-avatar-wrap,
-  .seat-slot-right .botseat-avatar-wrap { top: 32px; }
+  /* Drop ALL three bots' avatars to the same lower position so the avatar→plate
+     spacing is identical across seats (the felt curve made them look uneven). */
+  .botseat-avatar-wrap { top: 40px; }
 
   /* Board cards: smaller so five fit the narrow felt. */
   .pcard-board { width: 42px; height: 58px; border-radius: 7px; }
