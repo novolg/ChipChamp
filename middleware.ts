@@ -3,7 +3,7 @@ import { next, rewrite } from '@vercel/edge';
 // Runs at the edge in front of every request except the login page,
 // the login API, and the standalone login assets.
 export const config = {
-  matcher: ['/((?!api/login|login\\.html|favicon|robots\\.txt).*)'],
+  matcher: ['/((?!api/login|login\\.html|assets/logo-wordmark\\.png|favicon|robots\\.txt).*)'],
 };
 
 const COOKIE = 'cc_auth';
