@@ -799,6 +799,9 @@
   .nav-switch { padding: 2px; }
   .nav-seg { width: 64px; font-size: 12px; padding: 7px 0; }
   .nav-thumb { width: 64px; }
+  /* Match the mobile seg width so the sliding thumb lands on PLAY (was the
+     hardcoded desktop 108px → mismatch). 64px seg + 4px gap = 68px. */
+  .nav-thumb[data-pos='free'] { transform: translateX(68px); }
 
   /* Reclaim the desktop 32px body gutters — they crowd/clip the narrow felt
      and the learn/lesson columns. The play screen keeps its own .play-grid
