@@ -27,14 +27,6 @@ const POSITIONS = ['left', 'center', 'right'] as const;
  *  animation (--collect-ms) and the JS pot-punch/clink timing so they agree. */
 const LAND_MS = 420;
 
-/** Felt coordinates for the dealer disc, one per button slot (852x600 table area). */
-const DEALER_XY = {
-  left: { x: 212, y: 196 },
-  center: { x: 516, y: 152 },
-  right: { x: 640, y: 196 },
-  hero: { x: 544, y: 430 },
-} as const;
-
 const ACTION_LABEL: Record<string, string> = {
   fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE', allin: 'ALL-IN',
 };
@@ -128,7 +120,6 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
     hero && hero.id === game.buttonSeatId
       ? 'hero'
       : POSITIONS[opponents.findIndex((s) => s.id === game.buttonSeatId)];
-  const dealerXY = DEALER_XY[dealerSlot];
 
   // Street-end collect sweep: when the street flips, ghost-render the previous
   // street's bet pills sweeping into the pot. committedRef is refreshed by the
@@ -200,11 +191,7 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
         <Board board={game.board} pot={pot} street={game.street} highlightKeys={highlight} bumpKey={bumpKey} />
       </div>
 
-      <span
-        className="dealer-disc"
-        style={{ transform: `translate(${dealerXY.x}px, ${dealerXY.y}px)` }}
-        aria-label="dealer button"
-      >
+      <span className={`dealer-disc dealer-disc-${dealerSlot}`} aria-label="dealer button">
         D
       </span>
 

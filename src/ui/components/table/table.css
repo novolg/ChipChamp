@@ -490,6 +490,13 @@
   pointer-events: none;
 }
 
+/* Per-slot dealer-button coordinates (were JS inline transforms). Changing the
+   slot class animates the glide via the .dealer-disc `transition: transform`. */
+.dealer-disc-left   { transform: translate(212px, 196px); }
+.dealer-disc-center { transform: translate(516px, 152px); }
+.dealer-disc-right  { transform: translate(640px, 196px); }
+.dealer-disc-hero   { transform: translate(544px, 430px); }
+
 /* ---- Chip / bet pill ---- */
 .chips {
   display: flex;
