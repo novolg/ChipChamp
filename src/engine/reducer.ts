@@ -1,7 +1,7 @@
 import type { Action, Card, Deck, GameState, Pot, Seat, SeatStatus } from './types';
 import { Street } from './types';
 import { createDeck, shuffle } from './deck';
-import { nextToAct, getSeat } from './betting';
+import { nextToAct, getSeat, getLegalActions } from './betting';
 import { resolveShowdown } from './pots';
 import { evaluateHand, HAND_CATEGORY_LABEL } from './evaluator';
 
@@ -58,7 +58,7 @@ export function createTable(config: TableConfig): GameState {
     currentBet: 0,
     minRaise: config.bigBlind,
     lastAggressorSeatId: null,
-    lastFullRaiseSize: config.bigBlind,
+    lastFullRaiseLevel: config.bigBlind,
     rngState: config.seed,
     handNumber: 0,
     log: [],
@@ -176,7 +176,8 @@ export function startHand(state: GameState, opts: StartHandOptions = {}): GameSt
 
   next.currentBet = next.bigBlind;
   next.minRaise = next.bigBlind;
-  next.lastFullRaiseSize = next.bigBlind;
+  // The big blind is the standing full raise preflop.
+  next.lastFullRaiseLevel = next.bigBlind;
   next.lastAggressorSeatId = bbId;
   next.pots = displayPots(next);
 
@@ -235,11 +236,15 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'bet': {
       if (next.currentBet !== 0) throw new Error('Cannot bet facing a bet; raise instead');
       const target = action.amount ?? 0;
+      const minBet = getLegalActions(next).find((a) => a.type === 'bet')?.min ?? Infinity;
+      if (target < minBet && target !== seat.committedThisStreet + seat.stack) {
+        throw new Error(`Bet to ${target} is below the minimum ${minBet}`);
+      }
       const add = target - seat.committedThisStreet;
       commitChips(seat, add);
       const increment = target; // currentBet was 0
       next.currentBet = seat.committedThisStreet;
-      next.lastFullRaiseSize = increment;
+      next.lastFullRaiseLevel = next.currentBet;
       next.minRaise = increment;
       next.lastAggressorSeatId = seat.id;
       seat.hasActedThisStreet = true;
@@ -253,6 +258,14 @@ export function applyAction(state: GameState, action: Action): GameState {
         action.type === 'allin'
           ? seat.committedThisStreet + seat.stack
           : action.amount ?? 0;
+      // A 'raise' must meet the legal minimum unless it is the seat's full
+      // all-in (an all-in raise short of a full raise is dispatched here too).
+      if (action.type === 'raise') {
+        const minRaiseTo = getLegalActions(next).find((a) => a.type === 'raise')?.min ?? Infinity;
+        if (target < minRaiseTo && target !== seat.committedThisStreet + seat.stack) {
+          throw new Error(`Raise to ${target} is below the minimum ${minRaiseTo}`);
+        }
+      }
       const add = target - seat.committedThisStreet;
       commitChips(seat, add);
       const newTotal = seat.committedThisStreet;
@@ -266,7 +279,7 @@ export function applyAction(state: GameState, action: Action): GameState {
         next.currentBet = newTotal;
         next.lastAggressorSeatId = seat.id;
         if (fullRaise) {
-          next.lastFullRaiseSize = increment;
+          next.lastFullRaiseLevel = newTotal;
           next.minRaise = increment;
           reopenAction(next, seat.id);
         }
@@ -340,7 +353,8 @@ function dealNextStreet(state: GameState): void {
 function startBettingRound(state: GameState): void {
   state.currentBet = 0;
   state.minRaise = state.bigBlind;
-  state.lastFullRaiseSize = state.bigBlind;
+  // No full raise yet this round; a postflop bet will set the level.
+  state.lastFullRaiseLevel = 0;
   state.lastAggressorSeatId = null;
   for (const seat of state.seats) {
     seat.committedThisStreet = 0;
@@ -368,10 +382,32 @@ function awardUncontested(state: GameState): GameState {
   return state;
 }
 
+/**
+ * Return the uncalled portion of a bet to its bettor before pots are formed.
+ * The top contributor's chips above the second-highest contribution were matched
+ * by no one, so they were never really in play.
+ */
+function returnUncalledBet(state: GameState): void {
+  const contributors = state.seats.filter((s) => s.committedTotal > 0);
+  if (contributors.length < 2) return;
+  const byCommitted = [...contributors].sort((a, b) => b.committedTotal - a.committedTotal);
+  const uncalled = byCommitted[0].committedTotal - byCommitted[1].committedTotal;
+  if (uncalled <= 0) return; // top contribution was matched (tie) — nothing uncalled
+
+  const bettor = byCommitted[0];
+  bettor.stack += uncalled;
+  bettor.committedTotal -= uncalled;
+  state.log.push({
+    street: Street.Showdown,
+    note: `${bettor.name}'s uncalled bet of ${uncalled} is returned`,
+  });
+}
+
 function goToShowdown(state: GameState): GameState {
   state.street = Street.Showdown;
   state.phase = 'showdown';
   state.toActSeatId = null;
+  returnUncalledBet(state);
   const awards = resolveShowdown(state);
   for (const award of awards) {
     getSeat(state, award.seatId).stack += award.amount;

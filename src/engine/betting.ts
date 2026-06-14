@@ -79,7 +79,9 @@ export function getLegalActions(state: GameState): LegalAction[] {
     const minBet = Math.min(seat.committedThisStreet + state.minRaise, maxTo);
     if (seat.stack > 0) actions.push({ type: 'bet', min: minBet, max: maxTo });
   } else if (canOpenRaise) {
-    const minRaiseTo = state.currentBet + state.minRaise;
+    // Size off the last FULL raise level, not currentBet — a short all-in
+    // inflates currentBet without being a full raise.
+    const minRaiseTo = state.lastFullRaiseLevel + state.minRaise;
     if (maxTo >= minRaiseTo) {
       actions.push({ type: 'raise', min: minRaiseTo, max: maxTo });
     }

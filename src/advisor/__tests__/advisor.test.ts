@@ -26,7 +26,7 @@ function makeState(over: Partial<GameState>, hero: Partial<Seat>, villainCommitt
     street: Street.Preflop, board: [], deck: [],
     pots: [{ amount: 30, eligibleSeatIds: [0, 1] }],
     toActSeatId: 0, currentBet: villainCommitted, minRaise: 20,
-    lastAggressorSeatId: 1, lastFullRaiseSize: 20, rngState: 1, handNumber: 1,
+    lastAggressorSeatId: 1, lastFullRaiseLevel: 20, rngState: 1, handNumber: 1,
     log: [], phase: 'betting', ...over,
   };
 }
@@ -74,5 +74,37 @@ describe('advisor', () => {
     const s = makeState({ currentBet: 20 }, {}, 20);
     const advice = advise(s, 0);
     expect(advice.detail.some((d) => /equity/i.test(d))).toBe(true);
+  });
+
+  it('calls a non-top made pair when equity beats the pot odds (no longer auto-folds)', () => {
+    const s = makeState(
+      {
+        street: Street.Flop,
+        board: [c(14, 's'), c(9, 'd'), c(5, 'c')],
+        currentBet: 20,
+        pots: [{ amount: 200, eligibleSeatIds: [0, 1] }],
+      },
+      { holeCards: [c(9, 'c'), c(4, 'h')] }, // middle pair (pair of 9s), not top pair
+      20,
+    );
+    const advice = advise(s, 0);
+    expect(advice.suggestedAction).toBe('call');
+    expect(advice.reasoning).toMatch(/equity/i);
+  });
+
+  it('does not show a "draw" detail line when the hand is already a strong made hand', () => {
+    const s = makeState(
+      {
+        street: Street.Turn,
+        board: [c(14, 's'), c(13, 'd'), c(5, 'h'), c(7, 'h')],
+        currentBet: 0,
+        pots: [{ amount: 100, eligibleSeatIds: [0, 1] }],
+      },
+      { holeCards: [c(14, 'h'), c(13, 'h')] }, // two pair (AA+KK) carrying a 4-card heart flush draw
+      0,
+    );
+    const advice = advise(s, 0);
+    expect(advice.reasoning).toMatch(/strong made hand/i);
+    expect(advice.detail.some((d) => /draw/i.test(d))).toBe(false);
   });
 });

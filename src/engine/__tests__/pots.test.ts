@@ -75,7 +75,7 @@ describe('resolveShowdown', () => {
       currentBet: 0,
       minRaise: 2,
       lastAggressorSeatId: null,
-      lastFullRaiseSize: 2,
+      lastFullRaiseLevel: 2,
       rngState: 1,
       handNumber: 1,
       log: [],

@@ -88,7 +88,7 @@ describe('postflop decisions', () => {
       street: Street.Flop, board: [c(14, 'h'), c(13, 'd'), c(5, 's')],
       deck: [], pots: [{ amount: 80, eligibleSeatIds: [0, 1] }],
       toActSeatId: 0, currentBet: 20, minRaise: 20, lastAggressorSeatId: 1,
-      lastFullRaiseSize: 20, rngState: 3, handNumber: 1, log: [], phase: 'betting',
+      lastFullRaiseLevel: 20, rngState: 3, handNumber: 1, log: [], phase: 'betting',
     };
   }
 
@@ -96,6 +96,31 @@ describe('postflop decisions', () => {
     const s = postflopState();
     const action = decide(s, 0, { ...BOT_PRESETS.medium, aggression: 0 });
     expect(['call', 'raise']).toContain(action.type);
+    expect(action.type).not.toBe('fold');
+    expect(isLegal(action, getLegalActions(s))).toBe(true);
+  });
+
+  it('does not fold a non-top made pair that is getting the right price', () => {
+    const seats: Seat[] = [
+      {
+        id: 0, name: 'Hero', isHuman: false, stack: 980,
+        holeCards: [c(9, 'c'), c(4, 'h')], // middle pair (pair of 9s), not top pair
+        committedThisStreet: 0, committedTotal: 20, status: 'active', hasActedThisStreet: false,
+      },
+      {
+        id: 1, name: 'Villain', isHuman: false, stack: 760,
+        holeCards: [c(14, 's'), c(13, 'd')],
+        committedThisStreet: 20, committedTotal: 40, status: 'active', hasActedThisStreet: true,
+      },
+    ];
+    const s: GameState = {
+      seats, buttonSeatId: 1, smallBlind: 10, bigBlind: 20,
+      street: Street.Flop, board: [c(14, 'h'), c(9, 'd'), c(5, 's')],
+      deck: [], pots: [{ amount: 200, eligibleSeatIds: [0, 1] }],
+      toActSeatId: 0, currentBet: 20, minRaise: 20, lastAggressorSeatId: 1,
+      lastFullRaiseLevel: 20, rngState: 3, handNumber: 1, log: [], phase: 'betting',
+    };
+    const action = decide(s, 0, { ...BOT_PRESETS.medium, aggression: 0, bluffFreq: 0 });
     expect(action.type).not.toBe('fold');
     expect(isLegal(action, getLegalActions(s))).toBe(true);
   });

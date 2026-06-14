@@ -84,8 +84,10 @@ export interface GameState {
   /** Minimum legal raise INCREMENT (on top of currentBet). */
   minRaise: number;
   lastAggressorSeatId: number | null;
-  /** Size of the last full raise — gates whether a short all-in reopens action. */
-  lastFullRaiseSize: number;
+  /** The committed "to" total of the last full bet/raise this round. A short
+   *  all-in does not advance it, so the minimum legal raise-to stays
+   *  `lastFullRaiseLevel + minRaise` rather than tracking the inflated bet. */
+  lastFullRaiseLevel: number;
   rngState: number;
   handNumber: number;
   log: HandLogEntry[];

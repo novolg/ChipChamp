@@ -68,15 +68,19 @@ export function detectDraws(holeCards: Card[], board: Card[]): DrawInfo {
   for (const c of cards) suitCounts.set(c.suit, (suitCounts.get(c.suit) ?? 0) + 1);
   const flushDraw = [...suitCounts.values()].some((n) => n === 4);
 
-  // Straight draw: which ranks would complete a 5-card straight?
+  // Straight draw: which ranks would complete a 5-card straight? A hand that
+  // already contains five consecutive ranks is a MADE straight, not a draw, so
+  // it has zero straight outs (mirrors the made-flush exclusion above).
   const present = new Set<number>(cards.map((c) => c.rank));
   if (present.has(14)) present.add(1); // ace can be low
   const completing: number[] = [];
-  for (let v = 1; v <= 14; v++) {
-    if (present.has(v)) continue;
-    present.add(v);
-    if (hasFiveConsecutive(present)) completing.push(v);
-    present.delete(v);
+  if (!hasFiveConsecutive(present)) {
+    for (let v = 1; v <= 14; v++) {
+      if (present.has(v)) continue;
+      present.add(v);
+      if (hasFiveConsecutive(present)) completing.push(v);
+      present.delete(v);
+    }
   }
   const openEnded = completing.length >= 2;
   const gutshot = completing.length === 1;
@@ -112,11 +116,9 @@ export function madeStrengthBucket(holeCards: Card[], board: Card[]): StrengthBu
   const rank = evaluateHand(holeCards, board);
   if (rank.category >= HandCategory.TwoPair) return 'strong';
 
-  if (rank.category === HandCategory.Pair) {
-    const pairRank = rank.tiebreakers[0];
-    const maxBoard = Math.max(...board.map((c) => c.rank));
-    if (pairRank >= maxBoard) return 'medium'; // top pair or overpair
-  }
+  // Any made pair is at least medium: route it through the caller's
+  // equity-vs-pot-odds check rather than auto-folding non-top pairs to a bet.
+  if (rank.category === HandCategory.Pair) return 'medium';
 
   const draws = detectDraws(holeCards, board);
   if (draws.outs >= 8) return 'draw';

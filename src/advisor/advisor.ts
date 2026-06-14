@@ -81,7 +81,9 @@ export function advise(state: GameState, seatId: number): Advice {
   } else {
     const bucket = madeStrengthBucket(seat.holeCards, state.board);
     const draws = detectDraws(seat.holeCards, state.board);
-    if (draws.outs > 0) detail.push(`Draw: ~${draws.outs} outs (${draws.openEnded ? 'open-ended' : draws.gutshot ? 'gutshot' : 'flush'})`);
+    // Only surface draw outs when the hand isn't already a strong made hand —
+    // otherwise the rail contradicts its own "bet for value" advice.
+    if (draws.outs > 0 && bucket !== 'strong') detail.push(`Draw: ~${draws.outs} outs (${draws.openEnded ? 'open-ended' : draws.gutshot ? 'gutshot' : 'flush'})`);
 
     if (bucket === 'strong') {
       suggestedAction = toCall > 0 ? (legal.includes('raise') ? 'raise' : 'call') : legal.includes('bet') ? 'bet' : 'check';
