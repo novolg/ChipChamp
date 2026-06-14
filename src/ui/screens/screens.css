@@ -795,6 +795,12 @@
   .nav-seg { width: 78px; }
   .nav-thumb { width: 78px; }
 
+  /* Reclaim the desktop 32px body gutters — they crowd/clip the narrow felt
+     and the learn/lesson columns. The play screen keeps its own .play-grid
+     padding; the table felt is min(92vw, …) so it now breathes. */
+  .frame-learn .frame-body { padding: 16px 14px 24px; }
+  .frame-table .frame-body { padding: 8px 6px 10px; }
+
   /* Learn home: 3×3 tile grid → single column, scrolls in frame-body. */
   .learn-grid {
     grid-template-columns: 1fr;
