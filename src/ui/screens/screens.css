@@ -770,3 +770,43 @@
 .fb-right { border: 1px solid var(--c-green-edge); }
 .fb-wrong { border: 1px solid var(--c-red-edge); }
 .fb-head { font-weight: 800; margin: 0 0 var(--sp-2); }
+
+/* ============================================================
+   MOBILE (≤760px): the fixed 1240×880 canvas stops scaling and
+   becomes a fluid, full-viewport layout. Desktop is untouched.
+   ============================================================ */
+@media (max-width: 760px) {
+  /* Frame fills the viewport; --fit-scale becomes a no-op. dvh so the mobile
+     browser chrome (URL bar) never clips the bottom action bar. */
+  .frame {
+    width: 100dvw;
+    height: 100dvh;
+    transform: none;
+    border-radius: 0;
+    border: none;
+  }
+
+  /* Header: tighten and drop the progress chips to make room. */
+  .frame-header { height: 56px; padding: 0 14px; }
+  .frame-logo { height: 32px; }
+  .frame-right { gap: 10px; }
+  .hdr-chips { display: none; }
+  .nav-switch { padding: 3px; }
+  .nav-seg { width: 78px; }
+  .nav-thumb { width: 78px; }
+
+  /* Learn home: 3×3 tile grid → single column, scrolls in frame-body. */
+  .learn-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    gap: 12px;
+  }
+
+  /* Lesson: rank-explorer 1fr/240px → stacked. */
+  .rank-explorer { grid-template-columns: 1fr; }
+  /* Centered content column already max-width:760 — just trim side padding. */
+  .screen { padding-left: 14px; padding-right: 14px; }
+
+  /* Keep interactive lesson widgets within the viewport width. */
+  .screen svg { max-width: 100%; height: auto; }
+}
