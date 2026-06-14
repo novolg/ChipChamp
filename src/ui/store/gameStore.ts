@@ -86,7 +86,12 @@ export const useGameStore = create<GameStore>((set, get) => {
     newGame: (difficulty) => {
       clearBotTimer();
       const diff = difficulty ?? get().difficulty;
-      const table = createTable(DEFAULT_TABLE);
+      // Fresh games must vary: the engine is a deterministic seeded PRNG, so a
+      // constant seed replays the exact same hand forever (busting and hitting
+      // NEW GAME would deal an identical board every time). Draw entropy here in
+      // the UI layer — engine modules stay Math.random-free.
+      const seed = (Math.floor(Math.random() * 0xffffffff) | 0) || 1;
+      const table = createTable({ ...DEFAULT_TABLE, seed });
       set({ game: startHand(table, { buttonSeatId: DEFAULT_TABLE.buttonSeatId }), difficulty: diff, botThinking: false });
       scheduleBots();
     },
