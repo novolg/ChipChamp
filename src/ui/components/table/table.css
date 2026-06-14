@@ -1545,11 +1545,11 @@
     width: min(92vw, 360px);
     height: min(62vh, 520px);
     border: 10px solid var(--c-felt-rail);
-    border-radius: 88px;
+    border-radius: 120px;
   }
-  .table-felt-noise { border-radius: 78px; }
+  .table-felt-noise { border-radius: 110px; }
   .table-felt::before { border-radius: inherit; }
-  .table-felt::after { inset: 30px; border-radius: 58px; }
+  .table-felt::after { inset: 30px; border-radius: 88px; }
 
   /* Trim decorative clutter that crowds the small felt. */
   .felt-deck,
