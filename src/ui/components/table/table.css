@@ -1531,10 +1531,13 @@
     flex: 1;
     min-height: 0;
   }
+  /* FIXED viewport-relative height (not flex:1) so the felt can NEVER move when
+     the bottom UI changes height between moves (action bar appearing/hiding,
+     bet row wrapping). The action cluster is bottom-anchored below it. */
   .table {
-    flex: 1;
-    height: auto;
-    min-height: 360px;
+    flex: none;
+    height: min(58vh, 470px);
+    min-height: 0;
   }
 
   /* Portrait ellipse felt, centered (KEEP the translate centering — the all-in
@@ -1624,10 +1627,10 @@
   .coach-strip .coach-suggest { flex: none; gap: 8px; }
   .coach-strip .coach-suggest-btn { padding: 8px 16px; font-size: 14px; }
   .coach-strip .coach-confidence { display: none; }
-  /* Reserve a constant height so the strip doesn't shrink between an active
-     turn (tiles + suggestion) and the idle one-liner — that height change was
-     making the felt above jump. */
-  .coach-strip { min-height: 58px; }
+  /* Push the coach strip + action cluster to the bottom of the column; the
+     flexible gap sits between the (fixed) felt and the cluster, so any height
+     change in the action bar is absorbed there — the felt never moves. */
+  .coach-strip { min-height: 58px; margin-top: auto; }
   .coach-strip .coach-note { display: none; }
 
   /* Reserve a constant height for the controls (action bar is the tallest
