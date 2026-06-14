@@ -1539,15 +1539,17 @@
 
   /* Portrait ellipse felt, centered (KEEP the translate centering — the all-in
      punch + everything else depends on it). */
+  /* Rounded rectangle (the desktop racetrack rotated), NOT an ellipse: straight
+     sides with rounded corners. Radii in px so the corners stay consistent. */
   .table-felt {
     width: min(92vw, 360px);
     height: min(62vh, 520px);
     border: 10px solid var(--c-felt-rail);
-    border-radius: 50%;
+    border-radius: 88px;
   }
-  .table-felt-noise { border-radius: 50%; }
-  .table-felt::before { border-radius: 50%; }
-  .table-felt::after { inset: 34px; border-radius: 50%; }
+  .table-felt-noise { border-radius: 78px; }
+  .table-felt::before { border-radius: inherit; }
+  .table-felt::after { inset: 30px; border-radius: 58px; }
 
   /* Trim decorative clutter that crowds the small felt. */
   .felt-deck,
