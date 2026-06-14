@@ -1507,3 +1507,88 @@
     transform: translate(calc(-50% + var(--fx)), calc(-50% + var(--fy))) scale(1.1);
   }
 }
+
+/* ============================================================
+   MOBILE (≤760px): the landscape table reflows to a portrait oval.
+   Bots across the top arc (scaled down), board centered, hero bottom.
+   Values tuned for ~360–414px; adjust live if a row reads cramped.
+   ============================================================ */
+@media (max-width: 760px) {
+  /* Play area becomes a vertical flex column that fills the frame body. The
+     felt flexes to fill; the action cluster sits at the bottom (no scroll). */
+  .play-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    padding: 6px 8px 10px;
+  }
+  .play-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+  }
+  .table {
+    flex: 1;
+    height: auto;
+    min-height: 360px;
+  }
+
+  /* Portrait ellipse felt, centered (KEEP the translate centering — the all-in
+     punch + everything else depends on it). */
+  .table-felt {
+    width: min(92vw, 360px);
+    height: min(62vh, 520px);
+    border: 10px solid var(--c-felt-rail);
+    border-radius: 50%;
+  }
+  .table-felt-noise { border-radius: 50%; }
+  .table-felt::before { border-radius: 50%; }
+  .table-felt::after { inset: 34px; border-radius: 50%; }
+
+  /* Trim decorative clutter that crowds the small felt. */
+  .felt-deck,
+  .table-cone,
+  .felt-watermark { display: none; }
+
+  /* Bot seats: shrink the whole seat wholesale via transform (preserves the
+     complex internal layout without rewriting every child). */
+  .seat-slot { transform-origin: top center; }
+  .seat-slot-left   { left: 1vw;  top: 6px; transform: scale(0.55); }
+  .seat-slot-right  { right: 1vw; top: 6px; transform: scale(0.55); }
+  .seat-slot-center { left: 50%; top: 0; transform: translateX(-50%) scale(0.55); }
+
+  /* Board cards: smaller so five fit the narrow felt. */
+  .pcard-board { width: 42px; height: 58px; border-radius: 7px; }
+  .pcard-board .pcard-rank { font-size: 20px; }
+  .pcard-board .pcard-suit { font-size: 13px; }
+  .felt-cards { gap: 5px; }
+  .felt-slot { width: 42px; height: 58px; }
+
+  /* Hero: slightly smaller cards, keep bottom-center. */
+  .pcard-hero { width: 74px; height: 104px; }
+  .pcard-hero .pcard-rank { font-size: 38px; }
+  .pcard-hero .pcard-suit { font-size: 23px; }
+  .hero { gap: 6px; }
+
+  /* Bet pills: re-point toward the portrait geometry and the felt centre for
+     the street-end collect sweep (--cx/--cy point at pot centre). */
+  .seat-bet-left   { left: 14vw; top: 22%;  --cx: 60px;  --cy: 90px; }
+  .seat-bet-right  { right: 14vw; top: 22%; --cx: -60px; --cy: 90px; }
+  .seat-bet-center { left: 50%; top: 16%; transform: translateX(-50%); --cx: 0px; --cy: 120px; }
+  .seat-bet-hero   { left: 50%; bottom: 26%; transform: translateX(-50%); --cx: 0px; --cy: -120px; }
+
+  /* Dealer disc mobile coordinates (override the desktop slot classes). */
+  .dealer-disc-left   { transform: translate(16vw, 60px); }
+  .dealer-disc-center { transform: translate(50vw, 40px); }
+  .dealer-disc-right  { transform: translate(72vw, 60px); }
+  .dealer-disc-hero   { transform: translate(50vw, 78%); }
+
+  /* Win celebration: scale the burst down so it doesn't overflow the screen. */
+  .win-burst { width: 280px; height: 280px; }
+  .win-banner { padding: 14px 26px 16px; }
+  .win-title { font-size: 22px; }
+}
