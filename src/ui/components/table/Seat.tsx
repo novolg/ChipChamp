@@ -3,6 +3,8 @@ import { PlayingCard } from './Card';
 import { BotFace, botIdFor, type BotId, type Emotion } from './BotFace';
 import { useCountUp } from '../../hooks/useCountUp';
 import { BOT_DELAY_MS } from '../../store/gameStore';
+import type { GazeVec } from '../../hooks/useGazeDirector';
+import type { HandTell } from '../../lib/botEmotion';
 
 export interface ActionBubble {
   text: string;
@@ -30,6 +32,12 @@ interface SeatProps {
   emotionSeq: number;
   /** Showdown emote glyph (at most one bot per hand; lifecycle is pure CSS). */
   emote?: string;
+  /** Resolved gaze offset for the BotFace (cosmetic; from useGazeDirector). */
+  gaze?: GazeVec;
+  /** Smug chip-leader modifier. */
+  proud?: boolean;
+  /** Faint strength tell, only while acting. */
+  tell?: HandTell;
 }
 
 const key = (c: Card) => `${c.rank}${c.suit}`;
@@ -44,7 +52,7 @@ export function StackAmount({ value }: { value: number }) {
 }
 
 /** A bot seat: fanned card backs (or revealed cards), animated face, name plate. */
-export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking, emotion, emotionSeq, emote }: SeatProps) {
+export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking, emotion, emotionSeq, emote, gaze, proud, tell }: SeatProps) {
   const folded = seat.status === 'folded';
   const allIn = seat.status === 'allin';
   // Busted: 0 chips at deal → seated 'out' with no hole cards. Render as a dim,
@@ -76,7 +84,16 @@ export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bu
         </div>
         <span className="botseat-avatar-wrap">
           <div className="botseat-avatar">
-            <BotFace bot={bot} emotion={emotion} seatId={seat.id} name={seat.name} emotionSeq={emotionSeq} />
+            <BotFace
+                bot={bot}
+                emotion={emotion}
+                seatId={seat.id}
+                name={seat.name}
+                emotionSeq={emotionSeq}
+                gaze={gaze}
+                proud={proud}
+                tell={tell}
+              />
           </div>
           {/* Timebank: full ring when idle; drains over BOT_DELAY_MS while
               acting, reddening near empty. pathLength=100 → dash math in %. */}
