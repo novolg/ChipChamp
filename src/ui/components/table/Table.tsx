@@ -6,7 +6,8 @@ import { PlayingCard } from './Card';
 import { Chips } from './Chips';
 import { botIdFor, type BotId } from './BotFace';
 import { blindSeats, isShowdown, winnerNames, winningCardKeys } from '../../lib/derive';
-import { deriveEmotion, type Emotion } from '../../lib/botEmotion';
+import { deriveEmotion, chipLeaderProud, handTell, type Emotion } from '../../lib/botEmotion';
+import { useGazeDirector, gazeVector } from '../../hooks/useGazeDirector';
 import { useProgressStore } from '../../store/progressStore';
 import { LEARNING_PATH } from '../../../tutorial/content/learningPath';
 import { QUIZZES_BY_ID } from '../../../tutorial/content/quizzes';
@@ -108,6 +109,7 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
 
   const winners = game.phase === 'handComplete' ? winnerNames(game) : EMPTY_WINNERS;
   const emote = emoteFor(game, winners, opponents, pot);
+  const gazeMap = useGazeDirector(game);
 
   // Hero's level badge surfaces learn progress AT the poker table (p11).
   const done = useProgressStore(
@@ -197,7 +199,16 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
 
       {opponents.slice(0, 3).map((seat, i) => {
         const bubble = bubbles.get(seat.id);
-        const emotion = deriveEmotion(seat, game, thinkingSeatId === seat.id, winners, bubble?.type);
+        const base = deriveEmotion(seat, game, thinkingSeatId === seat.id, winners, bubble?.type);
+        const gazeState = gazeMap.get(seat.id);
+        // Director relief override wins over the pure cascade (it's timed).
+        const emotion: Emotion = gazeState?.expressionOverride ?? base;
+        const proud = chipLeaderProud(seat, game);
+        // Tell only while this bot is actively deciding or has just bet/raised.
+        const acting = seat.id === game.toActSeatId && game.phase === 'betting';
+        const justBet = bubble?.type === 'bet' || bubble?.type === 'raise';
+        const tell = acting || justBet ? handTell(seat, game.board) : null;
+        const gaze = gazeVector(POSITIONS[i], gazeState?.target ?? 'forward');
         return (
           /* Keyed per hand so the deal-in animation replays on every new hand. */
           <div key={`${seat.id}-${game.handNumber}`} className={`seat-slot seat-slot-${POSITIONS[i]}`}>
@@ -212,6 +223,9 @@ export function Table({ game, thinkingSeatId, children }: TableProps) {
               emotion={emotion}
               emotionSeq={emotionSeqFor(emotion, seat, bubble, game)}
               emote={emote && emote.seatId === seat.id ? emote.glyph : undefined}
+              gaze={gaze}
+              proud={proud}
+              tell={tell ?? undefined}
             />
           </div>
         );
