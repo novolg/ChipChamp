@@ -47,14 +47,18 @@ export function StackAmount({ value }: { value: number }) {
 export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking, emotion, emotionSeq, emote }: SeatProps) {
   const folded = seat.status === 'folded';
   const allIn = seat.status === 'allin';
+  // Busted: 0 chips at deal → seated 'out' with no hole cards. Render as a dim,
+  // card-less "OUT" seat so it doesn't read as an active player (the residual
+  // "Ben sits with card-backs but no chips" cosmetic).
+  const isOut = seat.status === 'out';
   const showCards = revealCards && seat.holeCards.length === 2;
   const bot = botIdFor(seat.name);
 
   return (
-    <div className={`botseat${isToAct ? ' botseat-acting' : ''}${folded ? ' botseat-folded' : ''}`}>
+    <div className={`botseat${isToAct ? ' botseat-acting' : ''}${folded ? ' botseat-folded' : ''}${isOut ? ' botseat-out' : ''}`}>
       <div className="botseat-top">
         <div className="botseat-cards">
-          {showCards ? (
+          {isOut ? null : showCards ? (
             seat.holeCards.map((c, i) => (
               <PlayingCard
                 key={i}
@@ -99,7 +103,11 @@ export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bu
           <span className="botseat-name">{seat.name}</span>
           {blindLabel && <span className="badge badge-blind">{blindLabel}</span>}
           {allIn && <span className="badge badge-allin">ALL-IN</span>}
-          <span className="botseat-stack"><StackAmount value={seat.stack} /></span>
+          {isOut ? (
+            <span className="badge badge-out">OUT</span>
+          ) : (
+            <span className="botseat-stack"><StackAmount value={seat.stack} /></span>
+          )}
         </div>
       </div>
     </div>

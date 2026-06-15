@@ -281,9 +281,12 @@
   align-items: center;
   gap: 7px;
 }
-.seat-slot-left { left: 60px; }
-.seat-slot-center { left: 50%; top: -6px; transform: translateX(-50%); }
-.seat-slot-right { right: 60px; }
+/* Seats follow the oval's top rim: the centre bot sits highest, the two side
+   bots drop ~40px to ride the curve down toward the felt's shoulders (mirrors
+   the bet pills, which already curve: centre top:142 vs sides top:170). */
+.seat-slot-left { left: 60px; top: 34px; }
+.seat-slot-center { left: 50%; top: -8px; transform: translateX(-50%); }
+.seat-slot-right { right: 60px; top: 34px; }
 
 .botseat {
   display: flex;
@@ -293,6 +296,10 @@
   transition: opacity 0.2s;
 }
 .botseat-folded { opacity: 0.4; }
+/* Busted/eliminated seat: dimmer than a fold + desaturated avatar so it clearly
+   reads as out of the game (no cards rendered; OUT badge replaces the stack). */
+.botseat-out { opacity: 0.38; }
+.botseat-out .botseat-avatar { filter: grayscale(0.85); }
 .botseat-top {
   position: relative;
   width: 156px;
@@ -464,6 +471,11 @@
 .badge-allin {
   background: var(--c-orange);
   color: var(--c-press-text);
+}
+.badge-out {
+  background: var(--c-border-2);
+  color: var(--c-text-2);
+  letter-spacing: 0.06em;
 }
 
 /* ---- Dealer disc: ONE physical chip on the felt that glides between hands
