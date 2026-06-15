@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/assets/readme-banner.png" alt="ChipChamp" width="640" />
+  <img src="public/assets/ad.jpeg" alt="ChipChamp — Master Your Game: The Ultimate Poker Learning Companion" width="880" />
 </p>
 
 <p align="center"><b>Learn Texas Hold'em by playing</b> — single-player vs AI bots, with a live coaching rail.</p>
