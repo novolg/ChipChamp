@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { Emotion } from '../../lib/botEmotion';
+import type { GazeVec } from '../../hooks/useGazeDirector';
+import type { HandTell } from '../../lib/botEmotion';
 import './botface.css';
 
 export type { Emotion } from '../../lib/botEmotion';
@@ -119,11 +121,17 @@ interface BotFaceProps {
   name: string;
   /** Bump to replay the current emotion's entry jolt (keyed .bf-pose remount). */
   emotionSeq: number;
+  /** Resolved gaze offset (Table owns the slot→vector lookup). */
+  gaze?: GazeVec;
+  /** Smug chip-leader modifier. */
+  proud?: boolean;
+  /** Faint strength tell, only while acting. */
+  tell?: HandTell;
 }
 
 /** Inline-SVG robot face: an animatable recreation of the bot PNG avatars.
  *  All motion is driven by CSS classes (.bf--{emotion}) in botface.css. */
-export function BotFace({ bot, emotion, seatId, name, emotionSeq }: BotFaceProps) {
+export function BotFace({ bot, emotion, seatId, name, emotionSeq, gaze, proud, tell }: BotFaceProps) {
   const persona = PERSONA[bot];
   // Deterministic per-seat phase offsets — no Math.random, replay-stable.
   const vars = {
@@ -134,12 +142,20 @@ export function BotFace({ bot, emotion, seatId, name, emotionSeq }: BotFaceProps
     '--bf-bob-tilt': persona.bobTilt,
     '--bf-ease': persona.ease,
     '--bf-pose-ms': `${persona.poseMs}ms`,
+    '--bf-gaze-x': `${gaze?.x ?? 0}px`,
+    '--bf-gaze-y': `${gaze?.y ?? 0}px`,
+    '--bf-gaze-tilt': `${gaze?.tilt ?? 0}deg`,
   } as CSSProperties;
+
+  const cls =
+    `botface bf-${bot} bf--${emotion}` +
+    (proud ? ' bf--proud' : '') +
+    (tell ? ` bf--tell-${tell}` : '');
 
   return (
     <svg
       viewBox="0 0 64 64"
-      className={`botface bf-${bot} bf--${emotion}`}
+      className={cls}
       role="img"
       aria-label={`${name} — ${emotion}`}
       style={vars}
@@ -180,52 +196,70 @@ export function BotFace({ bot, emotion, seatId, name, emotionSeq }: BotFaceProps
           they compose. The key remounts only the pose group, replaying entry
           keyframes without touching body/antenna/blink phase. */}
       <g className="bf-head">
-        <g className="bf-pose" key={`${emotion}-${emotionSeq}`}>
-          <rect className="bf-plate" x="13" y="20" width="38" height="30" rx="11" fill="var(--bot-plate)" />
-          <rect x="16" y="23" width="32" height="7" rx="3.5" fill="#fff" opacity="0.04" />
-          <g className="bf-eyes">
-            <Eye skin={SKINS[bot].eye} cx={24.5} />
-            <Eye skin={SKINS[bot].eye} cx={39.5} />
-          </g>
-          <g className="bf-mouth">
-            <circle className="bf-dot" cx="26.5" cy="43.5" r="1.8" fill="var(--bot-eye)" opacity="0.5" />
-            <circle className="bf-dot" cx="32" cy="43.5" r="1.8" fill="var(--bot-eye)" opacity="0.5" />
-            <circle className="bf-dot" cx="37.5" cy="43.5" r="1.8" fill="var(--bot-eye)" opacity="0.5" />
+        {/* Gaze head-tilt rides here so it composes with the idle bob (parent)
+            and the held emotion pose (child) instead of clobbering either. */}
+        <g className="bf-headtilt">
+          <g className="bf-pose" key={`${emotion}-${emotionSeq}`}>
+            <rect className="bf-plate" x="13" y="20" width="38" height="30" rx="11" fill="var(--bot-plate)" />
+            <rect x="16" y="23" width="32" height="7" rx="3.5" fill="#fff" opacity="0.04" />
+            {/* Suspicious brow: hidden by default; tilts about its centre. */}
             <path
-              className="bf-mouth-smile"
-              d="M26 42.5 Q32 47.5 38 42.5"
-              stroke="var(--bot-eye)"
-              strokeWidth="2.6"
-              fill="none"
-              strokeLinecap="round"
-              opacity="0"
-            />
-            <path
-              className="bf-mouth-frown"
-              d="M26 45.5 Q32 41 38 45.5"
-              stroke="var(--bot-eye)"
-              strokeWidth="2.6"
-              fill="none"
-              strokeLinecap="round"
-              opacity="0"
-            />
-            <circle
-              className="bf-mouth-o"
-              cx="32"
-              cy="43.5"
-              r="3"
+              className="bf-brow"
+              d="M21 26 L43 26"
               stroke="var(--bot-eye)"
               strokeWidth="2.4"
               fill="none"
+              strokeLinecap="round"
+              opacity="0"
+            />
+            {/* Eye gaze translate rides on .bf-gaze so emotion transforms on
+                .bf-eyes (thinking/confident/worried/asleep) still compose. */}
+            <g className="bf-gaze">
+              <g className="bf-eyes">
+                <Eye skin={SKINS[bot].eye} cx={24.5} />
+                <Eye skin={SKINS[bot].eye} cx={39.5} />
+              </g>
+            </g>
+            <g className="bf-mouth">
+              <circle className="bf-dot" cx="26.5" cy="43.5" r="1.8" fill="var(--bot-eye)" opacity="0.5" />
+              <circle className="bf-dot" cx="32" cy="43.5" r="1.8" fill="var(--bot-eye)" opacity="0.5" />
+              <circle className="bf-dot" cx="37.5" cy="43.5" r="1.8" fill="var(--bot-eye)" opacity="0.5" />
+              <path
+                className="bf-mouth-smile"
+                d="M26 42.5 Q32 47.5 38 42.5"
+                stroke="var(--bot-eye)"
+                strokeWidth="2.6"
+                fill="none"
+                strokeLinecap="round"
+                opacity="0"
+              />
+              <path
+                className="bf-mouth-frown"
+                d="M26 45.5 Q32 41 38 45.5"
+                stroke="var(--bot-eye)"
+                strokeWidth="2.6"
+                fill="none"
+                strokeLinecap="round"
+                opacity="0"
+              />
+              <circle
+                className="bf-mouth-o"
+                cx="32"
+                cy="43.5"
+                r="3"
+                stroke="var(--bot-eye)"
+                strokeWidth="2.4"
+                fill="none"
+                opacity="0"
+              />
+            </g>
+            <path
+              className="bf-sweat"
+              d="M47 21 q3.4 4.4 0 6.6 q-3.4 -2.2 0 -6.6"
+              fill="var(--bot-eye)"
               opacity="0"
             />
           </g>
-          <path
-            className="bf-sweat"
-            d="M47 21 q3.4 4.4 0 6.6 q-3.4 -2.2 0 -6.6"
-            fill="var(--bot-eye)"
-            opacity="0"
-          />
         </g>
       </g>
     </svg>
