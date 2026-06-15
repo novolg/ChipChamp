@@ -7,6 +7,8 @@ export type Emotion =
   | 'thinking'
   | 'confident'
   | 'worried'
+  | 'suspicious'
+  | 'relief'
   | 'shocked'
   | 'happy'
   | 'sad'
@@ -56,14 +58,18 @@ export function deriveEmotion(
   // 6. Just bet or raised: smug for as long as the action bubble shows.
   if (lastActionType === 'bet' || lastActionType === 'raise') return 'confident';
 
-  // 7. Facing real pressure: a big bet relative to the blinds or the stack.
   const owe = game.currentBet - seat.committedThisStreet;
-  if (
-    game.phase === 'betting' &&
-    seat.status === 'active' &&
-    owe > 0 &&
-    (owe >= 4 * game.bigBlind || owe >= 0.3 * seat.stack)
-  ) {
+  const facing = game.phase === 'betting' && seat.status === 'active' && owe > 0;
+
+  // 7. Facing moderate aggression — wary, not yet scared. Mutually exclusive with
+  //    worried by threshold (handles the below-threshold case that would otherwise
+  //    fall through to idle).
+  if (facing && owe < 4 * game.bigBlind && owe < 0.3 * seat.stack) {
+    return 'suspicious';
+  }
+
+  // 8. Facing real pressure: a big bet relative to the blinds or the stack.
+  if (facing && (owe >= 4 * game.bigBlind || owe >= 0.3 * seat.stack)) {
     return 'worried';
   }
 

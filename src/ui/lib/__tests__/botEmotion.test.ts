@@ -122,11 +122,36 @@ describe('deriveEmotion priority cascade', () => {
     expect(emotionOf(s, 1)).toBe('worried');
   });
 
-  it('defaults to idle: no pressure, nothing to react to', () => {
+  it('idle with no pressure; suspicious under a moderate raise', () => {
     let s = startHand(createTable(table([1000, 1000, 1000])));
     expect(emotionOf(s, 2)).toBe('idle'); // BB, nothing owed preflop
     s = applyAction(s, act('raise', 0, 40));
-    expect(emotionOf(s, 1)).toBe('idle'); // owes 30: under both thresholds
+    expect(emotionOf(s, 1)).toBe('suspicious'); // owes 30: below worried thresholds → suspicious
+  });
+
+  it('moderate aggression → suspicious (below the worried threshold)', () => {
+    // Blinds 10/20, stacks 1000. UTG (seat 3) raises to 60; the next seat to act
+    // owes 60, which is < 4*BB (80) and < 0.3*stack (300) → suspicious, not worried.
+    let s = startHand(createTable(table([1000, 1000, 1000, 1000], 0)));
+    s = applyAction(s, act('raise', s.toActSeatId!, 60));
+    const ower = seatOf(s, s.toActSeatId!);
+    expect(emotionOf(s, ower.id)).toBe('suspicious');
+  });
+
+  it('big aggression still → worried (worried beats suspicious)', () => {
+    // UTG (seat 3) raises to 140; the next seat to act owes 140 ≥ 4*BB (80) → worried.
+    let s = startHand(createTable(table([1000, 1000, 1000, 1000], 0)));
+    s = applyAction(s, act('raise', s.toActSeatId!, 140));
+    const ower = seatOf(s, s.toActSeatId!);
+    expect(emotionOf(s, ower.id)).toBe('worried');
+  });
+
+  it('nothing owed → not suspicious (stays idle)', () => {
+    // Fresh hand, the big blind owes 0 preflop.
+    const s = startHand(createTable(table([1000, 1000, 1000, 1000], 0)));
+    const bb = s.seats.find((x) => x.committedThisStreet === s.bigBlind)!;
+    // BB faces no raise yet; owe == 0.
+    expect(emotionOf(s, bb.id)).not.toBe('suspicious');
   });
 });
 
