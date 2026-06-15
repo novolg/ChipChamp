@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createTable, startHand, applyAction, type TableConfig } from '../../../engine/reducer';
 import { buildStackedDeck } from '../../../engine/deck';
 import type { Action, Card, GameState, Seat } from '../../../engine/types';
-import { deriveEmotion } from '../botEmotion';
+import { deriveEmotion, chipLeaderProud } from '../botEmotion';
 import { winnerNames } from '../derive';
 
 const NAMES = ['You', 'Ava', 'Ben', 'Cleo'];
@@ -152,6 +152,28 @@ describe('deriveEmotion priority cascade', () => {
     const bb = s.seats.find((x) => x.committedThisStreet === s.bigBlind)!;
     // BB faces no raise yet; owe == 0.
     expect(emotionOf(s, bb.id)).not.toBe('suspicious');
+  });
+});
+
+describe('chipLeaderProud', () => {
+  it('true only for a dominant chip leader (≥1.5× next stack)', () => {
+    // Ava (seat 1) has 3000; next-largest live stack is 1000 → 3× lead.
+    const s = startHand(createTable(table([1000, 3000, 1000, 1000], 0)));
+    expect(chipLeaderProud(seatOf(s, 1), s)).toBe(true);
+    expect(chipLeaderProud(seatOf(s, 2), s)).toBe(false);
+  });
+
+  it('false on a close lead (< 1.5×)', () => {
+    // 1400 vs 1000 = 1.4× → not proud.
+    const s = startHand(createTable(table([1000, 1400, 1000, 1000], 0)));
+    expect(chipLeaderProud(seatOf(s, 1), s)).toBe(false);
+  });
+
+  it('false for a folded seat', () => {
+    let s = startHand(createTable(table([1000, 3000, 1000, 1000], 0)));
+    s = applyAction(s, act('fold', s.toActSeatId!)); // fold the actor
+    const folded = s.seats.find((x) => x.status === 'folded')!;
+    expect(chipLeaderProud(folded, s)).toBe(false);
   });
 });
 

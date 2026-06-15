@@ -75,3 +75,18 @@ export function deriveEmotion(
 
   return 'idle';
 }
+
+/**
+ * Smug chip-leader flag — a PURE modifier, not a cascade state, so it composes
+ * on top of the current emotion instead of fighting it. True when this seat is
+ * still in the hand and its stack is ≥ 1.5× the next-largest in-hand stack.
+ */
+export function chipLeaderProud(seat: Seat, game: GameState): boolean {
+  if (seat.status !== 'active' && seat.status !== 'allin') return false;
+  const others = game.seats.filter(
+    (s) => s.id !== seat.id && (s.status === 'active' || s.status === 'allin'),
+  );
+  if (others.length === 0) return false;
+  const next = Math.max(...others.map((s) => s.stack));
+  return next > 0 && seat.stack >= 1.5 * next;
+}
