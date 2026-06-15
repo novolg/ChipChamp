@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createTable, startHand, applyAction, type TableConfig } from '../../../engine/reducer';
 import { buildStackedDeck } from '../../../engine/deck';
 import type { Action, Card, GameState, Seat } from '../../../engine/types';
-import { deriveEmotion, chipLeaderProud } from '../botEmotion';
+import { deriveEmotion, chipLeaderProud, handTell } from '../botEmotion';
 import { winnerNames } from '../derive';
 
 const NAMES = ['You', 'Ava', 'Ben', 'Cleo'];
@@ -206,5 +206,54 @@ describe('winnerNames', () => {
     s = applyAction(s, act('allin', 1));
     expect(s.phase).toBe('handComplete');
     expect(winnerNames(s)).toEqual(new Set(['You', 'Ava']));
+  });
+});
+
+describe('handTell', () => {
+  it('preflop: premium → strong, trash → weak, in-between → null', () => {
+    const deck = buildStackedDeck({
+      dealOrder: [1, 2, 3, 0],
+      holeCards: {
+        0: [c(6, 'c'), c(3, 'h')], // junk — seat 0 must have 2 cards
+        1: [c(14, 's'), c(14, 'h')], // AA  → chenScore 20 (strong)
+        2: [c(7, 's'), c(2, 'd')], //  72o → chenScore ~0 (weak)
+        3: [c(10, 's'), c(9, 's')], // T9s → chenScore 8 (strong tier, not premium → null)
+      },
+      board: [c(5, 'c'), c(8, 'h'), c(4, 'c'), c(6, 'd'), c(3, 'd')],
+    });
+    const s = startHand(createTable(table([1000, 1000, 1000, 1000], 0)), { deck });
+    expect(handTell(seatOf(s, 1), s.board)).toBe('strong');
+    expect(handTell(seatOf(s, 2), s.board)).toBe('weak');
+    expect(handTell(seatOf(s, 3), s.board)).toBe(null);
+  });
+
+  it('postflop: made two-pair+ → strong, air → weak, medium pair → null', () => {
+    const deck = buildStackedDeck({
+      dealOrder: [1, 2, 3, 0],
+      holeCards: {
+        0: [c(6, 'c'), c(3, 'h')], // junk — seat 0 must have 2 cards
+        1: [c(14, 's'), c(14, 'h')], // pairs the board for trips/strong
+        2: [c(7, 'd'), c(2, 'c')], //  total air on this board
+        3: [c(5, 's'), c(5, 'h')], // pocket 5s → one pair below board → 'medium' → null
+      },
+      board: [c(14, 'c'), c(9, 'h'), c(4, 'd')], // flop only (length 3)
+    });
+    let s = startHand(createTable(table([1000, 1000, 1000, 1000], 0)), { deck });
+    // advance to the flop so board has 3 cards: everyone checks/calls to flop.
+    while (s.board.length < 3) {
+      const id = s.toActSeatId;
+      if (id == null) break;
+      const owe = s.currentBet - seatOf(s, id).committedThisStreet;
+      s = applyAction(s, owe > 0 ? act('call', id) : act('check', id));
+    }
+    expect(handTell(seatOf(s, 1), s.board)).toBe('strong'); // trip aces
+    expect(handTell(seatOf(s, 2), s.board)).toBe('weak'); // high-card air
+    expect(handTell(seatOf(s, 3), s.board)).toBe(null); // one pair (medium bucket) → null
+  });
+
+  it('null when the seat has no cards', () => {
+    const s = startHand(createTable(table([1000, 1000, 1000, 1000], 0)));
+    const fake = { ...seatOf(s, 0), holeCards: [] };
+    expect(handTell(fake, s.board)).toBe(null);
   });
 });

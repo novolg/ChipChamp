@@ -1,5 +1,6 @@
-import type { Action, GameState, Seat } from '../../engine/types';
+import type { Action, Card, GameState, Seat } from '../../engine/types';
 import { isShowdown } from './derive';
+import { chenScore, chenTier, madeStrengthBucket } from '../../engine/strength';
 
 /** Facial states a bot can hold. Derived, never stored. */
 export type Emotion =
@@ -89,4 +90,27 @@ export function chipLeaderProud(seat: Seat, game: GameState): boolean {
   if (others.length === 0) return false;
   const next = Math.max(...others.map((s) => s.stack));
   return next > 0 && seat.stack >= 1.5 * next;
+}
+
+export type HandTell = 'strong' | 'weak' | null;
+
+/**
+ * Hand-strength tell — a PURE flag. Preflop uses the Chen score (premium →
+ * strong, trash → weak, everything between → null); postflop uses the coarse
+ * made-hand bucket. Intentionally a mild, catchable info-leak for teaching;
+ * rendered very faintly and only while the bot is actively deciding/betting
+ * (the acting gate lives in Table, not here).
+ */
+export function handTell(seat: Seat, board: Card[]): HandTell {
+  if (seat.holeCards.length !== 2) return null;
+  if (board.length < 3) {
+    const tier = chenTier(chenScore(seat.holeCards));
+    if (tier === 'premium') return 'strong';
+    if (tier === 'trash') return 'weak';
+    return null;
+  }
+  const bucket = madeStrengthBucket(seat.holeCards, board);
+  if (bucket === 'strong') return 'strong';
+  if (bucket === 'weak') return 'weak';
+  return null; // medium / draw → no clear tell
 }
