@@ -262,6 +262,31 @@ describe('playCue sample playback', () => {
     expect(fakeCtx.bufferSources[2].buffer).toBe(samples.getBuffer(SHUFFLE_POOL[0]));
   });
 
+  it('never lets a throwing node graph escape playCue — warns and falls back to synth', async () => {
+    const { samples, synth, audio, engine } = await freshAudio();
+    const api = engine.ensureCtx()!;
+    const fetchFn = manifestFetch({ shuffle: SHUFFLE_POOL });
+    const decode = vi.fn().mockResolvedValue({} as AudioBuffer);
+    await samples.loadSampleBank(fetchFn, decode);
+    expect(samples.bankStatus()).toBe('ready');
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const playSynthSpy = vi.spyOn(synth, 'playSynth').mockImplementation(() => {});
+    (api.ctx as unknown as FakeAudioContext).createBufferSource = () => {
+      throw new Error('killed node graph');
+    };
+
+    expect(() => audio.playCue('shuffle')).not.toThrow();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[sfx] sample playback failed:',
+      'shuffle',
+      expect.any(Error),
+    );
+    expect(playSynthSpy).toHaveBeenCalledWith('cardDeal', undefined);
+  });
+
   it('short-circuits (no graph activity) while muted, same as the synth path', async () => {
     const { samples, audio, engine } = await freshAudio();
     const api = engine.ensureCtx()!;

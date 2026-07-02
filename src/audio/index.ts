@@ -49,28 +49,34 @@ if (typeof window !== 'undefined') {
 }
 
 /** Play a decoded sample buffer through the cue's bus. Returns false when
- *  there's no audio context to play through (mirrors playSynth's own
- *  no-context no-op) so the caller can fall back to the synth voice. */
-function playBuffer(bus: BusName, buffer: AudioBuffer, opts?: { pan?: number }): boolean {
+ *  there's no context to play through OR the node graph throws (same "never
+ *  let SFX break the UI" rule as playSynth) — either way the caller falls
+ *  back to the synth voice, so a bad buffer degrades to sound, not silence. */
+function playBuffer(name: string, bus: BusName, buffer: AudioBuffer, opts?: { pan?: number }): boolean {
   const c = ensureCtx();
   if (!c) return false;
-  if (c.ctx.state === 'suspended') void c.ctx.resume();
-  const src = c.ctx.createBufferSource();
-  src.buffer = buffer;
-  // ±4% pitch/speed jitter so repeated cues (chip clinks, card slides) don't
-  // sound like the exact same recording on every hit.
-  src.playbackRate.value = 1 + (Math.random() * 0.08 - 0.04);
-  const busNode = c.bus(bus);
-  let dest: AudioNode = busNode;
-  if (opts?.pan !== undefined) {
-    const panner = c.ctx.createStereoPanner();
-    panner.pan.value = opts.pan;
-    panner.connect(busNode);
-    dest = panner;
+  try {
+    if (c.ctx.state === 'suspended') void c.ctx.resume();
+    const src = c.ctx.createBufferSource();
+    src.buffer = buffer;
+    // ±4% pitch/speed jitter so repeated cues (chip clinks, card slides)
+    // don't sound like the exact same recording on every hit.
+    src.playbackRate.value = 1 + (Math.random() * 0.08 - 0.04);
+    const busNode = c.bus(bus);
+    let dest: AudioNode = busNode;
+    if (opts?.pan !== undefined) {
+      const panner = c.ctx.createStereoPanner();
+      panner.pan.value = opts.pan;
+      panner.connect(busNode);
+      dest = panner;
+    }
+    src.connect(dest);
+    src.start();
+    return true;
+  } catch (e) {
+    console.warn('[sfx] sample playback failed:', name, e);
+    return false;
   }
-  src.connect(dest);
-  src.start();
-  return true;
 }
 
 /** Play a cue by name: a sample from its pool when the bank is ready and a
@@ -83,7 +89,7 @@ export function playCue(name: string, opts?: { pan?: number; semitones?: number 
   if (cue?.pool && bankStatus() === 'ready') {
     const basename = pickVariation(cue.pool, variationCounters);
     const buffer = getBuffer(basename);
-    if (buffer && playBuffer(cue.bus, buffer, opts)) return;
+    if (buffer && playBuffer(name, cue.bus, buffer, opts)) return;
   }
   playSynth((cue?.synth ?? name) as SynthName, opts);
 }

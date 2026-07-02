@@ -9,25 +9,10 @@ import manifestJson from '../../../public/audio/manifest.json';
 // CUES key at runtime.
 const manifest = manifestJson as { files: Record<string, string[]> };
 
-const EXISTING_SFX_NAMES = [
-  'click',
-  'chipClink',
-  'cardDeal',
-  'bet',
-  'check',
-  'call',
-  'fold',
-  'raise',
-  'allin',
-  'yourTurn',
-  'win',
-  'lose',
-  'levelUp',
-  'star',
-  'lock',
-  'incorrect',
-  'chipTick',
-];
+// Derived from synth.ts's VOICES keys (not a hand-copied literal) so this
+// list can never drift stale — adding a synth voice forces a CUES entry.
+// Sanity-pinned to 17 below so an accidental VOICES change is loud here too.
+const EXISTING_SFX_NAMES: readonly string[] = SYNTH_NAMES;
 
 const NEW_CUE_NAMES = [
   'shuffle',
@@ -50,6 +35,7 @@ const POOLED_EXISTING = ['chipClink', 'cardDeal'];
 
 describe('CUES coverage', () => {
   it('contains all 17 existing SfxNames, each with synth === its own name', () => {
+    expect(EXISTING_SFX_NAMES).toHaveLength(17);
     for (const name of EXISTING_SFX_NAMES) {
       expect(CUES[name], `missing CUES entry for "${name}"`).toBeDefined();
       expect(CUES[name].synth).toBe(name);
