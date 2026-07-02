@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDirector, type Channels, type DirectorOpts } from '../director';
+
+// Guard for the "injected scheduler never loads gsap" invariant: this factory
+// only runs if something actually imports the gsap module. Every test in this
+// file injects a scheduler, so the flag must stay false (asserted at the end).
+const gsapProbe = vi.hoisted(() => ({ loaded: false }));
+vi.mock('gsap', () => {
+  gsapProbe.loaded = true;
+  return { gsap: { delayedCall: () => ({ kill: () => {} }) } };
+});
 import type { ChannelName } from '../recipes';
 import type { Intensity } from '../intensity';
 import type { FeelEvent } from '../events';
@@ -152,10 +161,10 @@ describe('createDirector', () => {
     const { ch } = fakeChannels();
     const { schedule, scheduled } = recordingScheduler();
     const director = createDirector(ch, baseOpts({ speed: () => 0.5, schedule }));
-    director.dispatch([{ type: 'TURN_START' }], gs());
+    director.dispatch([{ type: 'HAND_START', handNumber: 1 }], gs());
 
-    // TURN_START 1x offsets are all 0 regardless of speed.
-    expect(scheduled.map((s) => s.ms)).toEqual([0, 0, 0]);
+    // HAND_START 1x offsets: 0 (scene), 0, 450, 600, 980 (audio) -> x2
+    expect(scheduled.map((s) => s.ms).sort((a, b) => a - b)).toEqual([0, 0, 900, 1200, 1960]);
   });
 
   it('cancelAll cancels every pending scheduled step', () => {
@@ -231,5 +240,12 @@ describe('createDirector', () => {
     director.dispatch([{ type: 'TURN_START' }], gs());
     // Nothing left pending to cancel — cancelAll should be a safe no-op.
     expect(() => director.cancelAll()).not.toThrow();
+  });
+
+  // Keep this test LAST: it asserts that none of the tests above (all of
+  // which inject a scheduler) caused the gsap module to load. If a future
+  // test accidentally exercises the default scheduler, this fails loudly.
+  it('never loads gsap when a scheduler is injected', () => {
+    expect(gsapProbe.loaded).toBe(false);
   });
 });

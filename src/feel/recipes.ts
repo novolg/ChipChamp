@@ -192,6 +192,9 @@ export const RECIPES: Record<FeelEvent['type'], (e: FeelEvent, i: Intensity) => 
         params: { count: CONFETTI_COUNT[i.tier] },
       },
     ];
+    // 70ms stagger controller-sanctioned: the brief's "chipClink@420 ×TIER_CLINKS"
+    // omitted the qualifier by accident — simultaneous clinks would stack into
+    // one thud, and legacy useTableSfx staggered its WIN clinks too.
     const clinkCount = TIER_CLINKS[i.tier];
     for (let n = 0; n < clinkCount; n++) {
       steps.push({ at: LAND_MS + n * CLINK_STAGGER_MS, channel: 'audio', cue: 'chipClink' });
