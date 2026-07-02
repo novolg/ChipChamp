@@ -163,6 +163,14 @@ describe('deriveFeelEvents', () => {
     expect(deriveFeelEvents(prev, next)).toEqual([{ type: 'TURN_START' }]);
   });
 
+  it('no TURN_START on a new hand even when hero is first to act (HAND_START only)', () => {
+    // useTableSfx returns early on a hand-number change BEFORE its toAct check,
+    // deliberately suppressing the your-turn cue at hand start.
+    const prev = gs({ handNumber: 1, phase: 'handComplete', toActSeatId: null });
+    const next = gs({ handNumber: 2, phase: 'betting', toActSeatId: 0 });
+    expect(deriveFeelEvents(prev, next)).toEqual([{ type: 'HAND_START', handNumber: 2 }]);
+  });
+
   it('TURN_START does NOT re-fire on an unchanged snapshot (StrictMode double-invoke)', () => {
     const snap = gs({ phase: 'betting', toActSeatId: 0 });
     // First diff establishes hero-to-act.

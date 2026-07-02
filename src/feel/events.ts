@@ -69,7 +69,9 @@ export function deriveFeelEvents(prev: GameState | null, next: GameState): FeelE
     events.push({ type: 'STREET_REVEAL', street: next.street, count: count === 3 ? 3 : 1 });
   }
 
-  if (!heroToAct(prev) && heroToAct(next)) {
+  // Same-hand only: useTableSfx returns early on a hand-number change before
+  // its toAct check, deliberately suppressing the your-turn cue at hand start.
+  if (sameHand && !heroToAct(prev) && heroToAct(next)) {
     events.push({ type: 'TURN_START' });
   }
 
