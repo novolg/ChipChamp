@@ -195,6 +195,8 @@ export class PokerScene {
   private mode: LayoutMode;
   private readonly felt: FeltActor;
   private readonly layers: { env: Container; table: Container; play: Container; fx: Container };
+  /** Last fit-scale seen by resize(); setMode reuses it to recompute resolution. */
+  private lastFitScale = 1;
 
   private constructor(app: Application, mode: LayoutMode, felt: FeltActor) {
     this.app = app;
@@ -265,19 +267,7 @@ export class PokerScene {
     // intentionally empty (shell)
   }
 
-  /** Rebuild positions for a new layout mode (no cross-animation — hard swap). */
-  setMode(mode: LayoutMode): void {
-    if (mode === this.mode) return;
-    this.mode = mode;
-    const L = tableLayout(mode);
-    const res = this.app.renderer.resolution;
-    this.app.renderer.resize(L.size.w, L.size.h, res);
-    this.felt.layout(L, mode);
-    this.app.render();
-  }
-
-  /** Track the frame's CSS fit-scale so the canvas bitmap stays crisp when the
-   *  1240×880 `.frame` is transform-scaled by `--fit-scale`.
+  /** Renderer resolution for a mode, from the last known fit-scale.
    *
    *  Deviation from the plan's literal `dpr * fitScale`: below 760px the frame
    *  is fluid (`.frame { transform: none }` in screens.css) so `--fit-scale` is
@@ -285,12 +275,30 @@ export class PokerScene {
    *  390px). Multiplying resolution by it would render a tiny, blurry bitmap on
    *  mobile. Portrait mode ⇔ mobile ⇔ unscaled frame, so we use a frame scale of
    *  1 there — honoring the plan's intent (a crisp canvas) over its formula. */
-  resize(fitScale: number): void {
+  private resolutionFor(mode: LayoutMode): number {
     const dpr = typeof globalThis.devicePixelRatio === 'number' ? globalThis.devicePixelRatio : 1;
-    const frameScale = this.mode === 'portrait' ? 1 : fitScale;
-    const resolution = Math.min(3, dpr * frameScale);
+    const frameScale = mode === 'portrait' ? 1 : this.lastFitScale;
+    return Math.min(3, dpr * frameScale);
+  }
+
+  /** Rebuild positions for a new layout mode (no cross-animation — hard swap).
+   *  Resolution is recomputed for the new mode — reusing the old renderer value
+   *  would carry a stale portrait/landscape frame-scale across the swap. */
+  setMode(mode: LayoutMode): void {
+    if (mode === this.mode) return;
+    this.mode = mode;
+    const L = tableLayout(mode);
+    this.app.renderer.resize(L.size.w, L.size.h, this.resolutionFor(mode));
+    this.felt.layout(L, mode);
+    this.app.render();
+  }
+
+  /** Track the frame's CSS fit-scale so the canvas bitmap stays crisp when the
+   *  1240×880 `.frame` is transform-scaled by `--fit-scale`. */
+  resize(fitScale: number): void {
+    this.lastFitScale = fitScale;
     const size = tableLayout(this.mode).size;
-    this.app.renderer.resize(size.w, size.h, resolution);
+    this.app.renderer.resize(size.w, size.h, this.resolutionFor(this.mode));
     this.app.render();
   }
 

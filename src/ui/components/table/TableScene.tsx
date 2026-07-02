@@ -102,8 +102,10 @@ function emotionSeqFor(
   return 0;
 }
 
-/** Absolute placement centered on a world-coordinate point. */
-const at = (p: Pt): CSSProperties => ({ left: p.x, top: p.y });
+/** Absolute placement centered on a world-coordinate point. `position` is set
+ *  inline so widget classes reused from table.css (e.g. .felt-pot's
+ *  `position: relative`) can never override it via CSS load order. */
+const at = (p: Pt): CSSProperties => ({ position: 'absolute', left: p.x, top: p.y });
 
 interface TableSceneProps {
   game: GameState;
@@ -216,7 +218,26 @@ function SceneOverlay({
         </div>
       )}
 
-      {/* Street label + pot capsule (board cards are removed on the scene path). */}
+      {/* STOPGAP until Task 10 draws cards in Pixi — delete with CardActor.
+          Community cards via the existing DOM PlayingCard (same recipe as
+          Table.tsx's <Board>), cards only — no placeholder slots, so the felt
+          stays clean until the flop. Row centered at layout.board, spaced by
+          layout.boardGap. */}
+      {game.board.length > 0 && (
+        <div style={{ ...at(L.board), transform: 'translate(-50%, -50%)', display: 'flex', gap: L.boardGap, zIndex: 2 }}>
+          {game.board.map((c, i) => (
+            <PlayingCard
+              key={i}
+              card={c}
+              size="board"
+              highlight={highlight.has(key(c))}
+              dealDelay={i <= 2 ? i * 0.09 : 0}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Street label + pot capsule. */}
       <div className="felt-street scene-bet" key={game.street} style={at(streetPt)}>
         {game.street.toUpperCase()}
       </div>
