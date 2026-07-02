@@ -105,6 +105,42 @@ describe('settingsStore persistence (loadSettings / saveSettings)', () => {
     expect(loaded).not.toHaveProperty('futureFeature');
     expect(loaded.volumes).not.toHaveProperty('futureBus');
   });
+
+  it('falls back to defaults for invalid literal/boolean values per field', () => {
+    const storage = fakeStorage({
+      'cc.settings.v1': JSON.stringify({
+        version: 1,
+        settings: {
+          speed: 5,
+          renderer: 'webgl',
+          reducedMotion: 'yes',
+          feltTheme: 'crimson',
+          haptics: 'yes',
+          fourColorDeck: 1,
+        },
+      }),
+    });
+    const loaded = loadSettings(storage);
+    expect(loaded.speed).toBe(1);
+    expect(loaded.renderer).toBe('auto');
+    expect(loaded.reducedMotion).toBe('system');
+    expect(loaded.feltTheme).toBe('navy');
+    expect(loaded.haptics).toBe(true);
+    expect(loaded.fourColorDeck).toBe(false);
+  });
+
+  it('keeps valid non-default literals while rejecting only the invalid ones', () => {
+    const storage = fakeStorage({
+      'cc.settings.v1': JSON.stringify({
+        version: 1,
+        settings: { speed: 0.5, renderer: 'dom', reducedMotion: 'banana' },
+      }),
+    });
+    const loaded = loadSettings(storage);
+    expect(loaded.speed).toBe(0.5);
+    expect(loaded.renderer).toBe('dom');
+    expect(loaded.reducedMotion).toBe('system');
+  });
 });
 
 describe('prefersReducedMotion', () => {
@@ -155,6 +191,18 @@ describe('useSettingsStore', () => {
     useSettingsStore.getState().setVolume('sfx', -1);
     expect(useSettingsStore.getState().settings.volumes.sfx).toBe(0);
     expect(engineMocks.setBusVolume).toHaveBeenCalledWith('sfx', 0);
+  });
+
+  it('setVolume with NaN never persists or forwards NaN (keeps current value)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+
+    useSettingsStore.getState().setVolume('master', NaN);
+
+    expect(useSettingsStore.getState().settings.volumes.master).toBe(1);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('master', 1);
+    const persisted = JSON.parse(storage.data['cc.settings.v1']);
+    expect(persisted.settings.volumes.master).toBe(1);
   });
 
   it('setVolume writes through to storage', () => {

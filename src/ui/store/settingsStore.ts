@@ -40,28 +40,44 @@ function defaultStorage(): StorageLike | null {
   return null;
 }
 
-function clampVolume(v: unknown, fallback: number): number {
+/** Clamp to [0,1]; non-finite / non-number input falls back (never lets NaN through). */
+function clamp01(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
 }
 
-/** Merge stored settings over the defaults, picking only known fields (forward-compat). */
+const SPEEDS: readonly Settings['speed'][] = [0.5, 1, 2];
+const FELT_THEMES: readonly Settings['feltTheme'][] = ['navy'];
+const RENDERERS: readonly Settings['renderer'][] = ['auto', 'full', 'reduced', 'dom'];
+const REDUCED_MOTION: readonly Settings['reducedMotion'][] = ['system', 'on'];
+
+/** Return v if it is one of the allowed literals; otherwise the fallback. */
+function pickLiteral<T>(v: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(v as T) ? (v as T) : fallback;
+}
+
+function pickBoolean(v: unknown, fallback: boolean): boolean {
+  return typeof v === 'boolean' ? v : fallback;
+}
+
+/** Merge stored settings over the defaults, picking only known fields with valid
+ *  values (forward-compat + corruption-safe: invalid literals fall back per field). */
 function sanitize(raw: StoredPayload['settings'] | undefined): Settings {
   const s: StoredPayload['settings'] = raw ?? {};
   const v: Partial<Settings['volumes']> = s.volumes ?? {};
   return {
     volumes: {
-      master: clampVolume(v.master, DEFAULT_SETTINGS.volumes.master),
-      sfx: clampVolume(v.sfx, DEFAULT_SETTINGS.volumes.sfx),
-      ui: clampVolume(v.ui, DEFAULT_SETTINGS.volumes.ui),
-      ambience: clampVolume(v.ambience, DEFAULT_SETTINGS.volumes.ambience),
-      music: clampVolume(v.music, DEFAULT_SETTINGS.volumes.music),
+      master: clamp01(v.master, DEFAULT_SETTINGS.volumes.master),
+      sfx: clamp01(v.sfx, DEFAULT_SETTINGS.volumes.sfx),
+      ui: clamp01(v.ui, DEFAULT_SETTINGS.volumes.ui),
+      ambience: clamp01(v.ambience, DEFAULT_SETTINGS.volumes.ambience),
+      music: clamp01(v.music, DEFAULT_SETTINGS.volumes.music),
     },
-    speed: s.speed ?? DEFAULT_SETTINGS.speed,
-    fourColorDeck: s.fourColorDeck ?? DEFAULT_SETTINGS.fourColorDeck,
-    feltTheme: DEFAULT_SETTINGS.feltTheme,
-    renderer: s.renderer ?? DEFAULT_SETTINGS.renderer,
-    reducedMotion: s.reducedMotion ?? DEFAULT_SETTINGS.reducedMotion,
-    haptics: s.haptics ?? DEFAULT_SETTINGS.haptics,
+    speed: pickLiteral(s.speed, SPEEDS, DEFAULT_SETTINGS.speed),
+    fourColorDeck: pickBoolean(s.fourColorDeck, DEFAULT_SETTINGS.fourColorDeck),
+    feltTheme: pickLiteral(s.feltTheme, FELT_THEMES, DEFAULT_SETTINGS.feltTheme),
+    renderer: pickLiteral(s.renderer, RENDERERS, DEFAULT_SETTINGS.renderer),
+    reducedMotion: pickLiteral(s.reducedMotion, REDUCED_MOTION, DEFAULT_SETTINGS.reducedMotion),
+    haptics: pickBoolean(s.haptics, DEFAULT_SETTINGS.haptics),
   };
 }
 
@@ -115,7 +131,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ settings: next });
   },
   setVolume: (bus, v) => {
-    const clamped = Math.min(1, Math.max(0, v));
+    // Non-finite input (NaN/Infinity) keeps the current value — never persist NaN.
+    const clamped = clamp01(v, get().settings.volumes[bus]);
     const next: Settings = {
       ...get().settings,
       volumes: { ...get().settings.volumes, [bus]: clamped },
