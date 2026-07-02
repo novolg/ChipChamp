@@ -1,0 +1,18 @@
+{
+  "files": {
+    "chipClink": ["chip-clink-1.mp3", "chip-clink-2.mp3", "chip-clink-3.mp3", "chip-clink-4.mp3"],
+    "cardDeal": ["card-slide-1.mp3", "card-slide-2.mp3"],
+    "shuffle": ["shuffle-riffle-1.mp3", "shuffle-riffle-2.mp3"],
+    "dealWhoosh": ["deal-whoosh-1.mp3", "deal-whoosh-2.mp3"],
+    "cardSlide": ["card-slide-solo-1.mp3", "card-slide-solo-2.mp3", "card-slide-solo-3.mp3"],
+    "cardFlip": ["card-flip-1.mp3", "card-flip-2.mp3"],
+    "cardThump": ["card-thump-1.mp3", "card-thump-2.mp3"],
+    "chipStackS": ["chip-stack-small-1.mp3", "chip-stack-small-2.mp3"],
+    "chipStackM": ["chip-stack-medium-1.mp3", "chip-stack-medium-2.mp3"],
+    "chipStackL": ["chip-stack-large-1.mp3", "chip-stack-large-2.mp3"],
+    "chipSplash": ["chip-splash-1.mp3", "chip-splash-2.mp3"],
+    "potPour": ["pot-pour-1.mp3", "pot-pour-2.mp3"],
+    "feltThud": ["felt-thud-1.mp3", "felt-thud-2.mp3"],
+    "buttonClack": ["button-clack-1.mp3", "button-clack-2.mp3"]
+  }
+}

@@ -197,6 +197,10 @@ const VOICES: Record<SynthName, (c: VoiceCtx, o?: VoiceOpts) => void> = {
   },
 };
 
+// Runtime view of the valid SynthName set — lets cues.ts (Task 5) validate
+// its fallback recipes actually exist without a second hand-maintained list.
+export const SYNTH_NAMES: readonly SynthName[] = Object.keys(VOICES) as SynthName[];
+
 // Which bus each voice routes to. UI micro-feedback (clicks/ticks/lock/miss)
 // sits on its own bus from the felt sounds (bets/deals/wins/…) so a settings
 // panel (Task 7) can balance them independently.
