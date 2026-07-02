@@ -2,12 +2,15 @@
  * sample pool (basenames resolved against `/audio/manifest.json` — see
  * `samples.ts`), and its synth fallback recipe (`synth.ts`'s `SynthName`).
  *
- * The 17 existing SfxNames stay synth-only (`pool` omitted) — they already
- * have hand-tuned oscillator/noise recipes and don't need real foley. Their
- * `bus` here matches `synth.ts`'s own internal `busFor` mapping exactly
- * (click/chipTick/lock/incorrect -> 'ui', everything else -> 'sfx'), purely
- * for documentation/consistency — since they never get a pool, `playCue`
- * always resolves them through `playSynth`, which computes its own bus.
+ * Of the 17 existing SfxNames, two physical felt sounds (`chipClink`,
+ * `cardDeal`) get sample pools — the Phase-1 sample set names them
+ * explicitly ("chip clink ×4", card slide foley). The other 15 stay
+ * synth-only (`pool` omitted): the ui-bus ticks plus the musical/abstract
+ * cues (win/lose/levelUp/…) already have hand-tuned recipes and aren't
+ * foley. Each entry's `bus` matches `synth.ts`'s own internal `busFor`
+ * mapping exactly (click/chipTick/lock/incorrect -> 'ui', everything else
+ * -> 'sfx'); for pool-less cues `playCue` always resolves through
+ * `playSynth`, which computes its own bus.
  *
  * The 12 new cues are physical table sounds (cards/chips/felt) introduced
  * for real recorded foley (see the premium game-feel proposal). None has a
@@ -27,10 +30,18 @@ export interface CueDef {
 }
 
 export const CUES: Record<string, CueDef> = {
-  // ---- existing 17 SfxNames — synth-only, unchanged behavior ----
+  // ---- existing 17 SfxNames — chipClink/cardDeal pooled, rest synth-only ----
   click: { bus: 'ui', synth: 'click' },
-  chipClink: { bus: 'sfx', synth: 'chipClink' },
-  cardDeal: { bus: 'sfx', synth: 'cardDeal' },
+  chipClink: {
+    bus: 'sfx',
+    synth: 'chipClink',
+    pool: ['chip-clink-1.mp3', 'chip-clink-2.mp3', 'chip-clink-3.mp3', 'chip-clink-4.mp3'],
+  },
+  cardDeal: {
+    bus: 'sfx',
+    synth: 'cardDeal',
+    pool: ['card-slide-1.mp3', 'card-slide-2.mp3'],
+  },
   bet: { bus: 'sfx', synth: 'bet' },
   check: { bus: 'sfx', synth: 'check' },
   call: { bus: 'sfx', synth: 'call' },

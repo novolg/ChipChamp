@@ -44,12 +44,25 @@ const NEW_CUE_NAMES = [
   'buttonClack',
 ];
 
+// The two existing SfxNames that get sample pools (physical felt sounds named
+// in the Phase-1 sample set); the other 15 existing names stay synth-only.
+const POOLED_EXISTING = ['chipClink', 'cardDeal'];
+
 describe('CUES coverage', () => {
-  it('contains all 17 existing SfxNames, synth-only (no pool)', () => {
+  it('contains all 17 existing SfxNames, each with synth === its own name', () => {
     for (const name of EXISTING_SFX_NAMES) {
       expect(CUES[name], `missing CUES entry for "${name}"`).toBeDefined();
-      expect(CUES[name].pool, `expected "${name}" to stay synth-only`).toBeUndefined();
       expect(CUES[name].synth).toBe(name);
+    }
+  });
+
+  it('pools exactly chipClink + cardDeal among the existing names; the other 15 stay synth-only', () => {
+    for (const name of EXISTING_SFX_NAMES) {
+      if (POOLED_EXISTING.includes(name)) {
+        expect(CUES[name].pool?.length ?? 0, `expected "${name}" to have a pool`).toBeGreaterThan(0);
+      } else {
+        expect(CUES[name].pool, `expected "${name}" to stay synth-only`).toBeUndefined();
+      }
     }
   });
 
@@ -76,6 +89,16 @@ describe('CUES / manifest.json integrity', () => {
           basename,
         );
       }
+    }
+  });
+
+  it('every manifest.json files key is referenced by a CUES pool of the same name (no orphan sourcing targets for Task 14)', () => {
+    for (const [key, files] of Object.entries(manifest.files)) {
+      const cue = CUES[key];
+      expect(cue?.pool, `manifest.json entry "${key}" has no CUES pool consuming it`).toBeDefined();
+      // Both directions of file-level consistency: the pool must reference
+      // every listed file, and (via the forward test above) nothing more.
+      expect(cue.pool!.slice().sort()).toEqual(files.slice().sort());
     }
   });
 
