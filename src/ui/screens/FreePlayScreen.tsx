@@ -1,8 +1,7 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useRef, type CSSProperties } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useProgressStore } from '../store/progressStore';
 import { AppFrame } from '../components/AppFrame';
-import { Table } from '../components/table/Table';
 import { ActionControls } from '../components/controls/ActionControls';
 import { CoachingRail } from '../components/coaching/CoachingRail';
 import { Confetti } from '../components/Confetti';
@@ -12,6 +11,10 @@ import { useTableSfx, payoutTier } from '../hooks/useTableSfx';
 import { canDealNextHand, heroIsBusted } from '../lib/derive';
 import { playSfx } from '../lib/sound';
 import type { GameState } from '../../engine/types';
+
+/** The hybrid Pixi scene + DOM overlay table (with DOM-only fallback). Lazily
+ *  loaded so PixiJS isn't in the initial bundle / on the Learn screen. */
+const TableScene = lazy(() => import('../components/table/TableScene'));
 
 type WinSlot = 'hero' | 'left' | 'center' | 'right';
 
@@ -147,7 +150,8 @@ export function FreePlayScreen() {
     <AppFrame variant="table" active="free" headerExtra={headerExtra}>
       <div className="play-grid">
         <div className="play-main">
-          <Table game={game} thinkingSeatId={botThinking ? game.toActSeatId : null}>
+          <Suspense fallback={<div className="play-loading">Loading…</div>}>
+          <TableScene game={game} thinkingSeatId={botThinking ? game.toActSeatId : null}>
             {win && (
               <div className="win-overlay" key={game.handNumber}>
                 {win.heroWon && <Confetti count={CONFETTI[winTier]} />}
@@ -184,7 +188,8 @@ export function FreePlayScreen() {
                 </div>
               </div>
             )}
-          </Table>
+          </TableScene>
+          </Suspense>
 
           {isMobile && (
             <CoachingRail game={game} seatId={hero?.id ?? 0} active={!!heroToAct} compact />

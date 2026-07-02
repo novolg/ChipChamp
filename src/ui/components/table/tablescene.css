@@ -1,0 +1,65 @@
+/* ============================================================
+   TableScene — hybrid Pixi + DOM overlay wrapper (Task 8).
+   The Pixi canvas draws the felt + deck; the DOM overlay (seats, hero,
+   pot, dealer disc, bet pills, win banner) is positioned from layout.ts
+   world coordinates and the whole world is uniformly scaled to fit the
+   available column. Widget LOOK is reused from table.css — this sheet only
+   owns the stage/world scaffolding + world-coordinate anchoring.
+   ============================================================ */
+
+/* The stage is a fixed-height box (mirrors the old .table's 600px) that the
+   world scales to fit. Overlay children are absolutely positioned, so the box
+   needs an explicit height on desktop — the .play-grid is a grid that does not
+   stretch vertically, so flex:1 would collapse to zero here. */
+.scene-stage {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  overflow: hidden;
+}
+
+/* The world coordinate space (layout.size). Sized + scaled inline, centered. */
+.scene-world {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+}
+
+/* Pixi canvas host — fills the world box behind the overlay. */
+.scene-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.scene-canvas canvas {
+  display: block;
+}
+
+/* A bot seat anchored on a world point (reuses .botseat styling from table.css). */
+.scene-seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  z-index: 2;
+}
+
+/* Live bet pill anchored on a world point. */
+.scene-bet {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+/* Mobile: the frame is a fluid 100dvh flex column that DOES stretch, so the
+   stage can flex to fill the space between the header and the action cluster. */
+@media (max-width: 760px) {
+  .scene-stage {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+}
