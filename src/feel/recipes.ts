@@ -68,19 +68,15 @@ const TIER_SEMITONES: Record<PayoutTier, number> = { small: 0, medium: 1, big: 2
 const TIER_CLINKS: Record<PayoutTier, number> = { small: 2, medium: 3, big: 4, monster: 6 };
 const CONFETTI_COUNT: Record<PayoutTier, number> = { small: 16, medium: 28, big: 38, monster: 56 };
 
-// PayoutTier has 4 buckets, the chip-stack sample pool has 3 (S/M/L) — big
-// and monster both read as the "large" stack; there's no louder cue above L.
-// NOTE: intensityFor's ACTION case (src/feel/intensity.ts) currently always
-// returns tier:'small' for bet/raise (it doesn't bucket by amountBB the way
-// WIN/STREET_REVEAL do), so in practice this always resolves to chipStackS
-// today. Recipe-level mapping is correct/future-proof regardless; flagged in
-// the task report as a cross-module limitation, not something to patch here.
-const CHIP_STACK_CUE: Record<PayoutTier, string> = {
-  small: 'chipStackS',
-  medium: 'chipStackM',
-  big: 'chipStackL',
-  monster: 'chipStackL',
-};
+// Chip-stack cue by intensity VALUE bands — a deliberate deviation from the
+// plan's literal "chipStackS|M|L by intensity tier" wording (controller-
+// resolved): intensityFor's ACTION case keeps `tier` constant ('small') by
+// design — only WIN/STREET_REVEAL bucket tier — while ACTION's `value` DOES
+// carry the bet magnitude (0.2..1, scaled by amountBB/25 in intensity.ts).
+// Selecting by tier would make M and L unreachable; value bands realize the
+// plan's actual intent: the stack sound scales with bet size.
+const chipStackCue = (value: number): string =>
+  value >= 0.75 ? 'chipStackL' : value >= 0.4 ? 'chipStackM' : 'chipStackS';
 
 // The chip-landing beat, preserved from Table.tsx's LAND_MS: bet pills sweep
 // into the pot and visually land ~420ms after a street/hand resolves, so
@@ -122,7 +118,7 @@ export const RECIPES: Record<FeelEvent['type'], (e: FeelEvent, i: Intensity) => 
             cue: 'betStack',
             params: { slot: a.slot, amount: a.amountBB },
           },
-          { at: 40, channel: 'audio', cue: CHIP_STACK_CUE[i.tier] },
+          { at: 40, channel: 'audio', cue: chipStackCue(i.value) },
           { at: 0, channel: 'haptic', cue: 'tap' },
         ];
 

@@ -32,14 +32,16 @@ const CASES: { label: string; event: FeelEvent; intensities: Intensity[] }[] = [
     intensities: [at('small')],
   },
   {
+    // Chip-stack cue selects by intensity VALUE (S/M/L bands) — vary value.
     label: 'ACTION bet',
     event: { type: 'ACTION', action: 'bet', seatId: 1, slot: 'left', amountBB: 3 },
-    intensities: ALL_TIERS.map((t) => at(t)),
+    intensities: [0.2, 0.5, 1].map((value) => at('small', value)),
   },
   {
+    // Band boundaries: 0.4 (S→M) and 0.75 (M→L), both sides of each.
     label: 'ACTION raise',
     event: { type: 'ACTION', action: 'raise', seatId: 1, slot: 'center', amountBB: 6 },
-    intensities: ALL_TIERS.map((t) => at(t)),
+    intensities: [0.39, 0.4, 0.74, 0.75].map((value) => at('small', value)),
   },
   {
     label: 'ACTION allin',
@@ -114,6 +116,19 @@ describe('RECIPES validator', () => {
       }
     });
   }
+
+  it('ACTION bet/raise picks the chip-stack cue by intensity value bands (S <0.4, M 0.4-0.75, L >=0.75)', () => {
+    const betEvent: FeelEvent = { type: 'ACTION', action: 'bet', seatId: 1, slot: 'left', amountBB: 3 };
+    const stackCueAt = (value: number): string | undefined =>
+      RECIPES.ACTION(betEvent, at('small', value)).find((s) => s.cue.startsWith('chipStack'))?.cue;
+
+    expect(stackCueAt(0.2)).toBe('chipStackS');
+    expect(stackCueAt(0.39)).toBe('chipStackS');
+    expect(stackCueAt(0.4)).toBe('chipStackM');
+    expect(stackCueAt(0.74)).toBe('chipStackM');
+    expect(stackCueAt(0.75)).toBe('chipStackL');
+    expect(stackCueAt(1)).toBe('chipStackL');
+  });
 
   it('WIN monster event scales confetti count and win semitones off tier', () => {
     const recipe = RECIPES.WIN(

@@ -188,6 +188,32 @@ describe('createDirector', () => {
     for (const s of firstBatch) expect(s.cancel).toHaveBeenCalledTimes(1);
   });
 
+  // Chip-stack cue scales with bet size via intensity VALUE (ACTION's tier is
+  // constant 'small' by design; value = max(0.2, min(1, amountBB/25))).
+  it('ACTION raise with amountBB 30 (intensity value 1) schedules chipStackL', () => {
+    const { ch, calls } = fakeChannels();
+    const director = createDirector(ch, baseOpts());
+    director.dispatch(
+      [{ type: 'ACTION', action: 'raise', seatId: 1, slot: 'left', amountBB: 30 }],
+      gs(),
+    );
+
+    expect(calls.audio.map((c) => c.cue)).toContain('chipStackL');
+    expect(calls.audio.map((c) => c.cue)).not.toContain('chipStackS');
+  });
+
+  it('ACTION bet with amountBB 2 (intensity value 0.2 floor) schedules chipStackS', () => {
+    const { ch, calls } = fakeChannels();
+    const director = createDirector(ch, baseOpts());
+    director.dispatch(
+      [{ type: 'ACTION', action: 'bet', seatId: 1, slot: 'left', amountBB: 2 }],
+      gs(),
+    );
+
+    expect(calls.audio.map((c) => c.cue)).toContain('chipStackS');
+    expect(calls.audio.map((c) => c.cue)).not.toContain('chipStackL');
+  });
+
   it("passes the event's computed Intensity through to channel calls", () => {
     const { ch, calls } = fakeChannels();
     const director = createDirector(ch, baseOpts());
