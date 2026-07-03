@@ -42,21 +42,41 @@ export interface ChipColumnAdd {
   denom: ChipDenom;
 }
 
+export interface ChipColumnRemove {
+  col: number;
+  row: number;
+}
+
 /**
- * The discs present in `next` beyond the common bottom-up prefix already in
- * `prev`, per column — exactly the new chips a re-bet should animate in, per
- * the brief ("Re-bet replaces amount: diff columns, only new discs animate").
- * Pure.
+ * The per-column delta from `prev` to `next`, split at each column's longest
+ * common bottom-up prefix:
+ *  - `added` — discs `next` has ABOVE the shared prefix (the new chips a re-bet
+ *    arcs in, per "diff columns, only new discs animate").
+ *  - `removed` — discs `prev` had above the shared prefix: a prefix BREAK (the
+ *    greedy breakdown of the larger amount is NOT a per-column extension of the
+ *    smaller — e.g. `[[10,10]]` (20) → `[[25],[10],[5]]` (40), where col0's
+ *    bottom disc itself changes denom), OR a surplus row/column the new
+ *    composition no longer has.
+ * The apply MUST destroy every `removed` sprite; otherwise a broken-prefix
+ * re-bet overwrites live sprite references, leaking detached discs at stale
+ * positions and leaving surplus rows on screen. Pure.
  */
-export function chipColumnDiff(prev: ChipDenom[][], next: ChipDenom[][]): ChipColumnAdd[] {
+export function chipColumnDiff(
+  prev: ChipDenom[][],
+  next: ChipDenom[][],
+): { added: ChipColumnAdd[]; removed: ChipColumnRemove[] } {
   const added: ChipColumnAdd[] = [];
-  next.forEach((nextCol, col) => {
+  const removed: ChipColumnRemove[] = [];
+  const cols = Math.max(prev.length, next.length);
+  for (let col = 0; col < cols; col++) {
     const prevCol = prev[col] ?? [];
-    let row = 0;
-    while (row < nextCol.length && prevCol[row] === nextCol[row]) row++;
-    for (; row < nextCol.length; row++) added.push({ col, row, denom: nextCol[row] });
-  });
-  return added;
+    const nextCol = next[col] ?? [];
+    let p = 0;
+    while (p < prevCol.length && p < nextCol.length && prevCol[p] === nextCol[p]) p++;
+    for (let row = p; row < prevCol.length; row++) removed.push({ col, row });
+    for (let row = p; row < nextCol.length; row++) added.push({ col, row, denom: nextCol[row] });
+  }
+  return { added, removed };
 }
 
 /**
@@ -68,25 +88,46 @@ export function chipColumnDiff(prev: ChipDenom[][], next: ChipDenom[][]): ChipCo
  * `motion.speed()`; `motion.reducedMotion()` snaps every behavior to its end
  * state — mirrors CardActor's idiom, including the single owned-tween field
  * killed before every reassignment (the muckTl/rimPulse pattern).
+ *
+ * State machine (the settle↔fx race is the reason it needs three fields):
+ * TableScene schedules fx cues async (`gsap.delayedCall`) but calls
+ * `PokerScene.sync` — hence `place` — SYNCHRONOUSLY right after. So on an
+ * ordinary raise with the deal timeline idle, `place(newAmount)` runs BEFORE
+ * `grow(newAmount)`. To keep the arc visible on that path, the fields decouple
+ * "what's built" from "what a grow may still animate":
+ *  - `amount`     — composition truth (what the stack is built to). Written by
+ *                   `place`(arg) and `grow`(arg, at start).
+ *  - `animatedTo` — diff base for the NEXT grow. Advanced ONLY on a grow that
+ *                   COMPLETES or snaps (reduced motion); `place` NEVER advances
+ *                   it — instead it records the amount it is REPLACING, so the
+ *                   grow scheduled for the same settle still sees the pre-bet
+ *                   composition and animates the delta. Reset to 0 by `clear`.
+ *  - `dirty`      — set by `killTweens` when a behavior is aborted mid-flight
+ *                   (setMode / teardown), so `amount` names a target the stack
+ *                   never actually reached; forces the next `place` to rebuild
+ *                   (hard-resetting position/scale/alpha) instead of no-opping.
  */
 export class ChipStackActor {
   readonly view = new Container();
 
   private home: Pt = { x: 0, y: 0 };
   private discSize = 20;
+  /** Composition truth: the amount the stack is currently BUILT to. */
   private amount = 0;
-  /** The amount the last completed `grow`/`place` fully caught up to — the
-   *  diff base for the NEXT `grow`, tracked separately from `amount` because
-   *  `place` (settle-to-truth, called synchronously from `PokerScene.sync`)
-   *  can race ahead of the async `betStack` fx cue for the SAME bet (the
-   *  director schedules cues a frame later than the synchronous sync call);
-   *  `grow` rewinds to `animatedTo`'s composition before animating so that
-   *  race can't erase the pre-bet picture it needs to diff against. */
+  /** Diff base for the next `grow` (the composition a grow rewinds to before
+   *  animating the delta). Advanced only when a grow completes/snaps; `place`
+   *  records the amount it REPLACES here, never the amount it sets — see the
+   *  class-level state-machine note. Reset to 0 by `clear`. */
   private animatedTo = 0;
-  private columns: ChipDenom[][] = [];
+  /** True when a behavior tween was killed mid-flight (killTweens) rather than
+   *  completing: the view is frozen at stale coords/alpha/scale and `amount`
+   *  still names the aborted target, so the plain amount-equality guard in
+   *  `place` would wrongly no-op. While dirty, the next `place` is forced to
+   *  rebuild + hard-reset; it then clears the flag. */
+  private dirty = false;
   private sprites: Sprite[][] = [];
   /** Transient splash-only sprites (winPush), cleared alongside the main
-   *  composition — never part of `columns`/`sprites` bookkeeping. */
+   *  composition — never part of the `sprites` bookkeeping. */
   private extra: Sprite[] = [];
   /** The single owned tween/timeline for whichever behavior is in flight
    *  (grow / sweepTo / pushTo — mutually exclusive per actor). */
@@ -164,7 +205,6 @@ export class ChipStackActor {
     for (const s of this.extra) s.destroy();
     this.sprites = [];
     this.extra = [];
-    this.columns = [];
     this.view.removeChildren();
     this.view.visible = false;
     this.view.alpha = 1;
@@ -172,11 +212,16 @@ export class ChipStackActor {
     this.view.position.set(this.home.x, this.home.y);
     this.amount = 0;
     this.animatedTo = 0;
+    this.dirty = false;
   }
 
-  /** Rebuild from scratch (instant, no tween) to match `cols`. */
+  /** Rebuild from scratch (instant, no tween) to match `cols`. Destroys any
+   *  splash leftovers too, so a rebuild after a killed `pushTo` can't strand
+   *  detached `extra` sprites on the view. */
   private rebuild(cols: ChipDenom[][]): void {
     for (const col of this.sprites) for (const s of col) s.destroy();
+    for (const s of this.extra) s.destroy();
+    this.extra = [];
     this.view.removeChildren();
     this.sprites = cols.map((col, c) =>
       col.map((denom, r) => {
@@ -187,38 +232,59 @@ export class ChipStackActor {
         return s;
       }),
     );
-    this.columns = cols;
   }
 
-  /** Settle-to-truth: hard-set to `amount`, no animation. A no-op while a
-   *  behavior tween owns this actor (its own completion re-syncs) or when
-   *  `amount` already matches the fully-settled truth — idempotent, safe to
-   *  call on every sync regardless of what's in flight. */
+  /** Settle-to-truth: hard-set to `amount`, no animation. Safe to call on every
+   *  sync regardless of what's in flight:
+   *   - while a behavior tween owns the actor, leave it be if it's heading to
+   *     the same truth (don't tear down a live grow whose target already equals
+   *     `amount`); hard-correct only when truth has diverged from that target;
+   *   - once settled here, subsequent calls no-op (idempotent) — UNLESS a
+   *     killed tween left us `dirty`, in which case `amount` names a target the
+   *     stack never reached and we must rebuild.
+   *  Deliberately does NOT advance `animatedTo` to the amount it sets: it
+   *  records the amount it REPLACES, so a `grow` scheduled for this same
+   *  synchronous settle still diffs against the pre-bet composition and its arc
+   *  stays visible (see the class-level state-machine note). */
   place(amount: number): void {
-    if (this.tl) return;
-    if (amount === this.amount && amount === this.animatedTo) return;
+    if (this.tl) {
+      if (amount === this.amount) return;
+      this.tl.kill();
+      this.tl = null;
+    }
+    if (!this.dirty && amount === this.amount) return;
     if (amount <= 0) {
       this.clear();
       return;
     }
+    // Baseline for a future grow = the picture being replaced. After a dirty
+    // repair there's no pending grow to feed, so catch the baseline fully up.
+    this.animatedTo = this.dirty ? amount : this.amount;
     this.rebuild(chipColumns(amount));
     this.view.position.set(this.home.x, this.home.y);
     this.view.scale.set(1);
     this.view.alpha = 1;
     this.view.visible = true;
     this.amount = amount;
-    this.animatedTo = amount;
+    this.dirty = false;
   }
 
-  /** Animated re-bet: diff the last-settled composition against `amount`'s
-   *  and arc only the NEW discs in from `from` (the seat), 200ms
-   *  `back.out(1.4)`, staggered 40ms. Reduced motion snaps to `place`. */
+  /** Animated re-bet: rewind to the last fully-animated composition
+   *  (`animatedTo`, which the synchronous settle deliberately did NOT advance),
+   *  then arc only the NEW discs in from `from` (the seat), 200ms
+   *  `back.out(1.4)`, staggered 40ms — even though `place` already hard-set the
+   *  post-bet stack. Surviving prefix discs stay put (re-centered for the new
+   *  column count); discs the new composition drops (prefix break / surplus)
+   *  are destroyed. Reduced motion (or a non-positive target) snaps. */
   grow(amount: number, from: Pt): gsap.core.Timeline {
     this.tl?.kill();
     this.tl = null;
     const tl = gsap.timeline();
     if (this.motion.reducedMotion() || amount <= 0) {
+      // A snapped grow is fully caught up — advance the diff base to match so a
+      // later (non-reduced) grow doesn't re-animate discs already on the felt.
       this.place(amount);
+      this.animatedTo = this.amount;
       return tl;
     }
 
@@ -230,14 +296,34 @@ export class ChipStackActor {
     this.view.alpha = 1;
     this.view.visible = true;
 
+    const { added, removed } = chipColumnDiff(prevCols, nextCols);
+    // Destroy every disc the new composition drops (prefix break or surplus
+    // row/column) so nothing is left detached at a stale position.
+    for (const { col, row } of removed) this.sprites[col]?.[row]?.destroy();
+
     const localFrom = { x: from.x - this.home.x, y: from.y - this.home.y };
-    const added = chipColumnDiff(prevCols, nextCols);
-    added.forEach(({ col, row, denom }, i) => {
-      (this.columns[col] ??= [])[row] = denom;
-      (this.sprites[col] ??= [])[row] = this.makeDisc(denom);
+    const addedKeys = new Set(added.map((a) => `${a.col}:${a.row}`));
+    // Retarget the sprite grid to the new composition: reuse surviving prefix
+    // discs (instantly re-centered for the possibly-changed column count), and
+    // park each added disc at the seat to be arced in below.
+    this.sprites = nextCols.map((col, c) =>
+      col.map((denom, r) => {
+        const isAdded = addedKeys.has(`${c}:${r}`);
+        const survivor = isAdded ? undefined : this.sprites[c]?.[r];
+        const rest = this.discPos(c, r, nextCols.length);
+        if (survivor) {
+          survivor.position.set(rest.x, rest.y);
+          return survivor;
+        }
+        const sprite = this.makeDisc(denom);
+        sprite.position.set(isAdded ? localFrom.x : rest.x, isAdded ? localFrom.y : rest.y);
+        this.view.addChild(sprite);
+        return sprite;
+      }),
+    );
+
+    added.forEach(({ col, row }, i) => {
       const sprite = this.sprites[col][row];
-      sprite.position.set(localFrom.x, localFrom.y);
-      this.view.addChild(sprite);
       const to = this.discPos(col, row, nextCols.length);
       const at = this.secs(i * GROW_STAGGER_MS);
       tl.to(
@@ -246,19 +332,9 @@ export class ChipStackActor {
         at,
       );
     });
-    // A denom group crossing into a new column shifts every column's
-    // centering span — re-home the untouched (already-settled) discs' x so
-    // the whole stack stays centered under its new column count.
-    if (nextCols.length !== prevCols.length) {
-      this.sprites.forEach((col, c) =>
-        col.forEach((sprite, r) => {
-          if (added.some((a) => a.col === c && a.row === r)) return;
-          sprite.position.x = this.discPos(c, r, nextCols.length).x;
-        }),
-      );
-    }
 
     this.amount = amount;
+    this.dirty = false;
     tl.eventCallback('onComplete', () => {
       this.animatedTo = amount;
       if (this.tl === tl) this.tl = null;
@@ -362,11 +438,16 @@ export class ChipStackActor {
    *  nothing keeps ticking a display object the renderer is about to
    *  destroy. Mirrors CardActor.killTweens(); the view itself is freed by
    *  the scene's recursive app.destroy (or, for a sweep-ghost, an explicit
-   *  view.destroy() by its owner). */
+   *  view.destroy() by its owner). Marks the actor `dirty`: a killed behavior
+   *  left the view frozen mid-flight (stale coords/alpha/scale, and `amount`
+   *  naming a target it never reached — e.g. a mid-push pot cluster or a
+   *  1.06-scale-stuck bounce), so the next settle must rebuild rather than
+   *  no-op it. (For a full teardown the view is destroyed anyway; harmless.) */
   killTweens(): void {
     this.tl?.kill();
     this.tl = null;
     this.bounceTl?.kill();
     this.bounceTl = null;
+    this.dirty = true;
   }
 }

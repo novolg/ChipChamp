@@ -403,9 +403,10 @@ export class PokerScene {
 
   /** Settle-to-truth for the bet stacks + pot cluster: stacks match
    *  `committedThisStreet` per seat exactly while betting (empty on any other
-   *  phase — handComplete included); the pot cluster mirrors `pots[].amount`.
-   *  Each actor's own `place()` no-ops while a grow/sweep/push tween owns it,
-   *  so this is safe to call on every sync regardless of what's mid-flight. */
+   *  phase — handComplete included); the pot cluster mirrors `pots[].amount`
+   *  while the hand is live. Each actor's own `place()` no-ops while a
+   *  grow/sweep/push tween owns it, so this is safe to call on every sync
+   *  regardless of what's mid-flight. */
   private settleChips(game: GameState): void {
     const betting = game.phase === 'betting';
     const hero = game.seats.find((s) => s.isHuman);
@@ -415,7 +416,15 @@ export class PokerScene {
       this.chips.bets[slot].place(betting && seat ? seat.committedThisStreet : 0);
     });
     this.chips.bets.hero.place(betting && hero ? hero.committedThisStreet : 0);
-    const pot = game.pots.reduce((sum, p) => sum + p.amount, 0);
+    // Sanctioned deviation from the brief's "pot cluster present when
+    // pots[].amount > 0" (task-11-brief.md `sync` line): the engine keeps
+    // pots[] nonzero through `handComplete`, so a settle during the win screen
+    // would resurrect the cluster mid-table after winPush already swept it to
+    // the winner. Controller resolution: present only while the hand is live
+    // (phase !== 'handComplete'). Under reduced motion winPush already snaps
+    // the cluster clear, which composes with this rule (place(0) then no-ops).
+    const pot =
+      game.phase === 'handComplete' ? 0 : game.pots.reduce((sum, p) => sum + p.amount, 0);
     this.chips.pot.place(pot);
   }
 
