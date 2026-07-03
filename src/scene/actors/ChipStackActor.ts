@@ -89,7 +89,7 @@ export function chipColumnDiff(
  * state — mirrors CardActor's idiom, including the single owned-tween field
  * killed before every reassignment (the muckTl/rimPulse pattern).
  *
- * State machine (the settle↔fx race is the reason it needs three fields):
+ * State machine (the settle↔fx race is the reason it needs four fields):
  * TableScene schedules fx cues async (`gsap.delayedCall`) but calls
  * `PokerScene.sync` — hence `place` — SYNCHRONOUSLY right after. So on an
  * ordinary raise with the deal timeline idle, `place(newAmount)` runs BEFORE
@@ -106,6 +106,14 @@ export function chipColumnDiff(
  *                   (setMode / teardown), so `amount` names a target the stack
  *                   never actually reached; forces the next `place` to rebuild
  *                   (hard-resetting position/scale/alpha) instead of no-opping.
+ *  - `pushing`    — true while a `pushTo` glide owns the actor: set when the
+ *                   push starts, cleared when it completes (the push ends in
+ *                   `clear()`) and by `killTweens` (mirrors CardActor's
+ *                   `mucking` flag). While set, `place` returns EARLY,
+ *                   whatever the amount — a settle landing mid-glide (notably
+ *                   the handComplete pot-zero) would otherwise kill the
+ *                   in-flight win push. A killed push drops the flag and
+ *                   leaves `dirty` set, so the next settle repairs normally.
  */
 export class ChipStackActor {
   readonly view = new Container();
@@ -125,6 +133,11 @@ export class ChipStackActor {
    *  `place` would wrongly no-op. While dirty, the next `place` is forced to
    *  rebuild + hard-reset; it then clears the flag. */
   private dirty = false;
+  /** True while a `pushTo` glide owns the actor (win push). Set at push start,
+   *  cleared on completion and by `killTweens`. While set, `place` returns
+   *  early — the push owns the visual and ends in `clear()`. See the
+   *  class-level state-machine note. */
+  private pushing = false;
   private sprites: Sprite[][] = [];
   /** Transient splash-only sprites (winPush), cleared alongside the main
    *  composition — never part of the `sprites` bookkeeping. */
@@ -236,6 +249,8 @@ export class ChipStackActor {
 
   /** Settle-to-truth: hard-set to `amount`, no animation. Safe to call on every
    *  sync regardless of what's in flight:
+   *   - while a `pushTo` is in flight (`pushing`), return early unconditionally
+   *     — the push owns the visual and ends in `clear()`;
    *   - while a behavior tween owns the actor, leave it be if it's heading to
    *     the same truth (don't tear down a live grow whose target already equals
    *     `amount`); hard-correct only when truth has diverged from that target;
@@ -247,6 +262,11 @@ export class ChipStackActor {
    *  synchronous settle still diffs against the pre-bet composition and its arc
    *  stays visible (see the class-level state-machine note). */
   place(amount: number): void {
+    // A win push owns the visual until it completes (ending in `clear()`) or
+    // is killed (killTweens → dirty → the NEXT settle repairs). Any settle
+    // landing mid-glide — notably the handComplete pot-zero, which fires the
+    // same tick as the winPush cue — must leave the flight alone.
+    if (this.pushing) return;
     if (this.tl) {
       if (amount === this.amount) return;
       this.tl.kill();
@@ -390,11 +410,14 @@ export class ChipStackActor {
     const tl = gsap.timeline();
     if (this.motion.reducedMotion()) {
       this.tl = null;
+      this.pushing = false;
       this.clear();
       return tl;
     }
+    this.pushing = true;
     tl.eventCallback('onComplete', () => {
       if (this.tl === tl) this.tl = null;
+      this.pushing = false;
       this.clear();
     });
 
@@ -448,6 +471,9 @@ export class ChipStackActor {
     this.tl = null;
     this.bounceTl?.kill();
     this.bounceTl = null;
+    // A killed push no longer owns the visual: drop the guard so the `dirty`
+    // rebuild below isn't blocked on the next settle.
+    this.pushing = false;
     this.dirty = true;
   }
 }

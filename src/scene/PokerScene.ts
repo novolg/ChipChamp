@@ -654,12 +654,22 @@ export class PokerScene {
   }
 
   /** WIN: the pot cluster glides to the winner's hole-card slot, splashes,
-   *  and clears (see ChipStackActor.pushTo). */
+   *  and clears (see ChipStackActor.pushTo). The WIN feel-event fires at the
+   *  transition into `handComplete`, and TableScene settles SYNCHRONOUSLY
+   *  while cues dispatch async — so by the time this runs, `settleChips` has
+   *  already cleared + hidden the cluster (pot treated as 0 on that phase).
+   *  Re-place it first from the REAL pot total on `this.game.pots` — the
+   *  engine keeps `pots[]` nonzero through `handComplete`, and the recipe's
+   *  `amount` is BB-normalized, not a chip count (same reasoning as
+   *  `playBetStack`). The grow() rewind pattern, applied to the pot. Reduced
+   *  motion composes: re-place, then pushTo's snap path ends cleared. */
   private playWinPush(slotVal: unknown): void {
     const slot = seatSlotOf(slotVal);
-    if (!slot) return;
+    const game = this.game;
+    if (!slot || !game) return;
     const L = tableLayout(this.mode);
     const actor = this.chips.pot;
+    actor.place(game.pots.reduce((sum, p) => sum + p.amount, 0));
     actor.pushTo(L.seatCards[slot]);
     this.trackChipFx(actor);
   }
