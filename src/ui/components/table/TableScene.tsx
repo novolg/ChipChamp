@@ -306,9 +306,11 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
   const modeRef = useRef(mode);
   const fitScaleRef = useRef(fitScale);
   const gameRef = useRef(game);
+  const thinkingSeatIdRef = useRef(thinkingSeatId);
   modeRef.current = mode;
   fitScaleRef.current = fitScale;
   gameRef.current = game;
+  thinkingSeatIdRef.current = thinkingSeatId;
 
   // Live settings/tier for the director's getters + channels (created once, so
   // it must read the latest through refs rather than closed-over values).
@@ -422,7 +424,7 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
           scene.setFourColor(useSettingsStore.getState().settings.fourColorDeck);
           scene.resize(fitScaleRef.current);
           scene.setMode(modeRef.current);
-          scene.sync(gameRef.current);
+          scene.sync(gameRef.current, thinkingSeatIdRef.current);
         })
         .catch((err) => {
           if (cancelled) return;
@@ -438,16 +440,24 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
     };
   }, [tier]);
 
-  // Every game change: derive feel events off the previous snapshot, let the
-  // director dispatch them across channels, then settle the scene to truth.
-  // Runs on ALL tiers so the DOM fallback still gets audio/haptics.
+  // Every game change: derive feel events off the previous snapshot and let
+  // the director dispatch them across channels. Runs on ALL tiers so the DOM
+  // fallback still gets audio/haptics.
   useEffect(() => {
     if (!game) return;
     const events = deriveFeelEvents(prevGameRef.current, game);
     prevGameRef.current = game;
     directorRef.current?.dispatch(events, game);
-    sceneRef.current?.sync(game);
   }, [game]);
+
+  // Settle the scene to truth AFTER dispatch (declared second → runs second on
+  // a game change). Also keyed on thinkingSeatId: the bot-think camera framing
+  // changes between game snapshots (the store flips the thinker while a bot's
+  // delay timer runs), and only sync needs to re-run for it — not dispatch.
+  useEffect(() => {
+    if (!game) return;
+    sceneRef.current?.sync(game, thinkingSeatId);
+  }, [game, thinkingSeatId]);
 
   // Push frame + settings changes to the live scene.
   useEffect(() => {
