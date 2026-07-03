@@ -30,6 +30,7 @@ export class CardActor {
   private readonly shadow = new Graphics();
   private rim: Graphics | null = null;
   private rimPulse: gsap.core.Tween | null = null;
+  private muckTl: gsap.core.Timeline | null = null;
 
   private readonly backTex: Texture;
   private faceTex: Texture | null = null;
@@ -225,6 +226,7 @@ export class CardActor {
       this.mucking = false;
       return tl;
     }
+    this.muckTl = tl;
     tl.to(
       this.view,
       {
@@ -237,6 +239,7 @@ export class CardActor {
         onComplete: () => {
           this.view.visible = false;
           this.mucking = false;
+          this.muckTl = null;
         },
       },
       0,
@@ -244,11 +247,13 @@ export class CardActor {
     return tl;
   }
 
-  /** Kill any looping tween (the rim pulse) so it never ticks a display object
-   *  the renderer is about to destroy. The view itself is freed by the scene's
-   *  recursive app.destroy. */
+  /** Kill any tween this actor owns (rim pulse loop, in-flight muck) so nothing
+   *  keeps ticking a display object the renderer is about to destroy. The view
+   *  itself is freed by the scene's recursive app.destroy. */
   killTweens(): void {
     this.rimPulse?.kill();
     this.rimPulse = null;
+    this.muckTl?.kill();
+    this.muckTl = null;
   }
 }
