@@ -4,9 +4,6 @@ import {
   Container,
   FillGradient,
   Graphics,
-  Sprite,
-  Text,
-  TilingSprite,
   type Texture,
 } from 'pixi.js';
 import { gsap } from 'gsap';
@@ -14,6 +11,7 @@ import { tableLayout, BOT_SLOTS, type LayoutMode, type SeatSlot, type TableLayou
 import type { QualityTier } from './quality';
 import type { GameState } from '../engine/types';
 import { createAssets, type SceneAssets } from './assets';
+import { FeltActor, type SceneTextures } from './actors/FeltActor';
 import { CardActor, type CardMotion } from './actors/CardActor';
 import { ChipStackActor } from './actors/ChipStackActor';
 import {
@@ -26,29 +24,6 @@ import {
   botCardPositions,
   type SceneCards,
 } from './sync';
-
-/** Noise felt texture; the card-back comes from SceneAssets (loaded once). */
-interface SceneTextures {
-  noise: Texture | null;
-  cardBack: Texture;
-}
-
-/** Rail-ring / decoration sizing per layout mode (mirrors table.css desktop vs
- *  the ≤760px portrait block, where the rail is thinner and the deck/watermark
- *  are hidden). */
-interface FeltStyle {
-  railW: number;
-  showDeck: boolean;
-  showWatermark: boolean;
-  deckW: number;
-  watermarkSize: number;
-}
-
-function feltStyle(mode: LayoutMode): FeltStyle {
-  return mode === 'portrait'
-    ? { railW: 9, showDeck: false, showWatermark: false, deckW: 34, watermarkSize: 30 }
-    : { railW: 12, showDeck: true, showWatermark: true, deckW: 46, watermarkSize: 46 };
-}
 
 /** All four bet-anchor slots (the three bot slots plus hero). */
 const ALL_SLOTS: readonly SeatSlot[] = [...BOT_SLOTS, 'hero'];
@@ -70,157 +45,46 @@ function seatSlotOf(v: unknown): SeatSlot | null {
   return v === 'left' || v === 'center' || v === 'right' || v === 'hero' ? v : null;
 }
 
-/**
- * FeltActor — draws today's felt look purely from `layout.ts` geometry:
- * navy radial felt ellipse, rail ring, racetrack line, vignette, tiled noise
- * overlay and a faint brand watermark. Rebuilt wholesale on a layout change
- * (cheap; static geometry). Cards/chips are NOT drawn here — cards live in
- * the play layer (CardActor) and chip stacks in the fx layer (ChipStackActor).
- * Exposes the drawn deck stack so the deal ritual can riffle it.
- */
-class FeltActor {
-  readonly view = new Container();
-  /** The drawn deck stack (landscape only); null in portrait. */
-  deckView: Container | null = null;
-  private readonly textures: SceneTextures;
+function clamp(x: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, x));
+}
 
-  constructor(textures: SceneTextures) {
-    this.textures = textures;
-  }
+/* ---------------------------------------------------------------------------
+ * Environment layer (behind the felt): two soft bokeh blobs + a parallax
+ * container that shifts them from pointer position (or device tilt, mobile).
+ * ------------------------------------------------------------------------- */
 
-  layout(L: TableLayout, mode: LayoutMode): void {
-    // Wholesale rebuild: destroy prior children so a mode swap can't leak nodes.
-    this.view.removeChildren().forEach((c) => c.destroy({ children: true }));
-    this.deckView = null;
-    const { cx, cy, rx, ry } = L.felt;
-    const style = feltStyle(mode);
+const BOKEH_DIAMETER = 140;
+const BOKEH_ALPHA = 0.05;
+/** Fractional (of canvas size) rest positions — opposite corners, scales with
+ *  either layout mode's canvas instead of hardcoded pixels. */
+const BOKEH_SPOTS: readonly [number, number][] = [
+  [0.18, 0.22],
+  [0.86, 0.82],
+];
+const BOKEH_COLORS = ['110, 160, 255', '255, 207, 63']; // brand highlight blue + gold, matching existing rim/rim-glint hues
 
-    // Rail ring: a slightly larger ellipse behind the felt (the felt sits on it).
-    this.view.addChild(
-      new Graphics().ellipse(cx, cy, rx + style.railW, ry + style.railW).fill({ color: 0x18233e }),
-    );
+const PARALLAX_POINTER_X = 6;
+const PARALLAX_POINTER_Y = 3;
+const PARALLAX_TILT_MAX = 6;
+const PARALLAX_TILT_RANGE_DEG = 15; // device tilt (deg) that maxes out the ±6px clamp
 
-    // Felt: navy radial (#1a3a78 → #142c5c → #0c1b3a), highlight biased upward to
-    // match `radial-gradient(ellipse at 50% 32%, …)` in tokens.css.
-    const feltGradient = new FillGradient({
-      type: 'radial',
-      center: { x: 0.5, y: 0.34 },
-      innerRadius: 0,
-      outerCenter: { x: 0.5, y: 0.5 },
-      outerRadius: 0.72,
-      colorStops: [
-        { offset: 0, color: 0x1a3a78 },
-        { offset: 0.48, color: 0x142c5c },
-        { offset: 1, color: 0x0c1b3a },
-      ],
-      textureSpace: 'local',
-    });
-    this.view.addChild(new Graphics().ellipse(cx, cy, rx, ry).fill(feltGradient));
-
-    // Top sheen — a soft cool highlight near the felt's upper third.
-    const sheen = new FillGradient({
-      type: 'radial',
-      center: { x: 0.5, y: 0.16 },
-      innerRadius: 0,
-      outerCenter: { x: 0.5, y: 0.16 },
-      outerRadius: 0.5,
-      colorStops: [
-        { offset: 0, color: 'rgba(140, 190, 255, 0.14)' },
-        { offset: 1, color: 'rgba(140, 190, 255, 0)' },
-      ],
-      textureSpace: 'local',
-    });
-    this.view.addChild(new Graphics().ellipse(cx, cy, rx, ry).fill(sheen));
-
-    // Tiled noise, clipped to the felt ellipse (alpha mirrors .table-felt-noise 0.6).
-    if (this.textures.noise) {
-      const noise = new TilingSprite({
-        texture: this.textures.noise,
-        width: rx * 2,
-        height: ry * 2,
-        x: cx - rx,
-        y: cy - ry,
-      });
-      noise.alpha = 0.6;
-      const noiseMask = new Graphics().ellipse(cx, cy, rx, ry).fill({ color: 0xffffff });
-      this.view.addChild(noise, noiseMask);
-      noise.mask = noiseMask;
-    }
-
-    // Vignette: transparent centre → dark rim (approximates the inset shadows).
-    const vignette = new FillGradient({
-      type: 'radial',
-      center: { x: 0.5, y: 0.5 },
-      innerRadius: 0,
-      outerCenter: { x: 0.5, y: 0.5 },
-      outerRadius: 0.72,
-      colorStops: [
-        { offset: 0, color: 'rgba(6, 12, 26, 0)' },
-        { offset: 0.62, color: 'rgba(6, 12, 26, 0)' },
-        { offset: 1, color: 'rgba(6, 12, 26, 0.55)' },
-      ],
-      textureSpace: 'local',
-    });
-    this.view.addChild(new Graphics().ellipse(cx, cy, rx, ry).fill(vignette));
-
-    // Inner rim highlight + racetrack betting line (the two inset borders).
-    this.view.addChild(
-      new Graphics()
-        .ellipse(cx, cy, rx - 2, ry - 2)
-        .stroke({ width: 2, color: 0x6ea0ff, alpha: 0.28 }),
-    );
-    this.view.addChild(
-      new Graphics()
-        .ellipse(cx, cy, rx - rx * 0.11, ry - ry * 0.18)
-        .stroke({ width: 1.5, color: 0x6ea0ff, alpha: 0.16 }),
-    );
-
-    // Faint brand watermark near the felt's lower third.
-    if (style.showWatermark) {
-      const mark = new Text({
-        text: 'CHIPCHAMP',
-        style: {
-          fontFamily: 'Kanit, system-ui, sans-serif',
-          fontSize: style.watermarkSize,
-          fontWeight: '900',
-          fontStyle: 'italic',
-          letterSpacing: 4,
-          fill: 0xbcd2ff,
-        },
-      });
-      mark.anchor.set(0.5);
-      mark.position.set(cx, cy + ry * 0.6);
-      mark.alpha = 0.06;
-      this.view.addChild(mark);
-    }
-
-    // Deck stack: a rotated card-back at layout.deck, with a couple of offset
-    // navy plates behind it to read as a physical stack.
-    if (style.showDeck) {
-      const deck = new Container();
-      const w = style.deckW;
-      const h = w * (L.cardH / L.cardW);
-      for (const [dx, dy, alpha] of [
-        [-6, 9, 0.9],
-        [-3, 5, 0.95],
-      ] as const) {
-        deck.addChild(
-          new Graphics()
-            .roundRect(-w / 2 + dx, -h / 2 + dy, w, h, 5)
-            .fill({ color: 0x13234c, alpha }),
-        );
-      }
-      const back = new Sprite(this.textures.cardBack);
-      back.anchor.set(0.5);
-      back.width = w;
-      back.height = h;
-      deck.addChild(back);
-      deck.position.set(L.deck.x, L.deck.y);
-      deck.rotation = 0.105; // ~6deg, matches .felt-deck
-      this.view.addChild(deck);
-      this.deckView = deck;
-    }
-  }
+function makeBokeh(rgb: string): Graphics {
+  const gradient = new FillGradient({
+    type: 'radial',
+    center: { x: 0.5, y: 0.5 },
+    innerRadius: 0,
+    outerCenter: { x: 0.5, y: 0.5 },
+    outerRadius: 0.5,
+    colorStops: [
+      { offset: 0, color: `rgba(${rgb}, 1)` },
+      { offset: 1, color: `rgba(${rgb}, 0)` },
+    ],
+    textureSpace: 'local',
+  });
+  const g = new Graphics().circle(0, 0, BOKEH_DIAMETER / 2).fill(gradient);
+  g.alpha = BOKEH_ALPHA;
+  return g;
 }
 
 /**
@@ -237,6 +101,10 @@ export class PokerScene {
   private readonly felt: FeltActor;
   private readonly assets: SceneAssets;
   private readonly layers: { env: Container; table: Container; play: Container; fx: Container };
+  /** Env-layer parallax wrapper (behind the felt): shifts the two bokeh blobs
+   *  from pointer position (desktop) or device tilt (mobile). Position is
+   *  reset to (0,0) the instant reduced-motion turns on — see `setMotion`. */
+  private readonly envParallax = new Container();
   private readonly cards: SceneCards;
   /** The bet-stack actor per seat slot, plus the pot cluster. */
   private readonly chips: { bets: Record<SeatSlot, ChipStackActor>; pot: ChipStackActor };
@@ -272,10 +140,15 @@ export class PokerScene {
   /** Last fit-scale seen by resize(); setMode reuses it to recompute resolution. */
   private lastFitScale = 1;
 
-  private constructor(app: Application, mode: LayoutMode, felt: FeltActor, assets: SceneAssets) {
+  private constructor(
+    app: Application,
+    mode: LayoutMode,
+    textures: SceneTextures,
+    assets: SceneAssets,
+    tier: Exclude<QualityTier, 'dom'>,
+  ) {
     this.app = app;
     this.mode = mode;
-    this.felt = felt;
     this.assets = assets;
     this.layers = {
       env: new Container({ label: 'env' }),
@@ -284,10 +157,19 @@ export class PokerScene {
       fx: new Container({ label: 'fx' }),
     };
     this.app.stage.addChild(this.layers.env, this.layers.table, this.layers.play, this.layers.fx);
-    this.layers.table.addChild(this.felt.view);
 
     const motion: CardMotion = { speed: () => this.speed, reducedMotion: () => this.reduced };
     this.motion = motion;
+    // FeltActor is built here (not in `create()`) so its ambient effects can
+    // read `this.reduced` live through `motion` — it doesn't exist until now.
+    this.felt = new FeltActor(textures, motion, this.app.ticker, tier === 'full');
+    this.layers.table.addChild(this.felt.view);
+
+    // Env layer: bokeh blobs behind the felt, wrapped in the parallax container.
+    this.layers.env.addChild(this.envParallax);
+    this.envParallax.addChild(...BOKEH_COLORS.map(makeBokeh));
+    this.layoutEnv(tableLayout(mode));
+
     const back = assets.cardBack();
     const mk = () => new CardActor(back, motion);
     this.cards = {
@@ -356,25 +238,66 @@ export class PokerScene {
     ]);
 
     host.appendChild(app.canvas);
-    const scene = new PokerScene(
-      app,
-      mode,
-      new FeltActor({ noise, cardBack: assets.cardBack() }),
-      assets,
-    );
+    const scene = new PokerScene(app, mode, { noise, cardBack: assets.cardBack() }, assets, tier);
     scene.felt.layout(tableLayout(mode), mode);
     // A canvas tap skips the current deal to its rest state.
     app.canvas.addEventListener('pointerdown', scene.skip);
+    // Environment parallax: pointer over the canvas (desktop/touch) always;
+    // device tilt only where the API exists — never prompts for iOS motion
+    // permission (never call DeviceOrientationEvent.requestPermission()). If
+    // permission was never granted, events simply never fire and the
+    // parallax stays still, which is an acceptable, non-blocking outcome.
+    app.canvas.addEventListener('pointermove', scene.onPointerMove);
+    if (typeof globalThis.DeviceOrientationEvent !== 'undefined') {
+      globalThis.addEventListener('deviceorientation', scene.onDeviceOrientation);
+    }
     app.render();
     return scene;
   }
 
   /** Push motion settings from the UI (speed divides tween durations;
-   *  reducedMotion snaps). */
+   *  reducedMotion snaps). Reduced motion additionally snaps the env-parallax
+   *  container back to rest immediately — it doesn't wait for the next
+   *  pointer/gyro event. FeltActor's breathing/glint/motes read `this.reduced`
+   *  live through the shared `motion` getter, so they need no extra push. */
   setMotion(speed: number, reducedMotion: boolean): void {
     this.speed = speed;
     this.reduced = reducedMotion;
+    if (reducedMotion) this.envParallax.position.set(0, 0);
   }
+
+  /** Reposition the two bokeh blobs for the current layout mode's canvas size
+   *  (fractional placement — same opposite-corner spots scale to either
+   *  mode). The parallax container's OWN position is a separate, independent
+   *  offset driven by pointer/gyro — untouched here. */
+  private layoutEnv(L: TableLayout): void {
+    this.envParallax.children.forEach((child, i) => {
+      const [fx, fy] = BOKEH_SPOTS[i];
+      child.position.set(L.size.w * fx, L.size.h * fy);
+    });
+  }
+
+  /** Shift the env-parallax container from pointer position over the canvas,
+   *  clamped ±6px horizontally / ±3px vertically. No-op under reduced motion
+   *  (checked live — DYNAMIC, per the plan). */
+  private onPointerMove = (e: PointerEvent): void => {
+    if (this.reduced) return;
+    const rect = this.app.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const nx = clamp(((e.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
+    const ny = clamp(((e.clientY - rect.top) / rect.height) * 2 - 1, -1, 1);
+    this.envParallax.position.set(nx * PARALLAX_POINTER_X, ny * PARALLAX_POINTER_Y);
+  };
+
+  /** Mobile fallback for the same parallax: device gamma/beta tilt, clamped
+   *  ±6px. Only ever attached when `DeviceOrientationEvent` exists (see
+   *  `create`); no-op under reduced motion. */
+  private onDeviceOrientation = (e: DeviceOrientationEvent): void => {
+    if (this.reduced) return;
+    const nx = clamp((e.gamma ?? 0) / PARALLAX_TILT_RANGE_DEG, -1, 1);
+    const ny = clamp((e.beta ?? 0) / PARALLAX_TILT_RANGE_DEG, -1, 1);
+    this.envParallax.position.set(nx * PARALLAX_TILT_MAX, ny * PARALLAX_TILT_MAX);
+  };
 
   /** Switch the card-face color scheme; re-bakes faces and resettles. */
   setFourColor(fourColor: boolean): void {
@@ -788,6 +711,7 @@ export class PokerScene {
     const L = tableLayout(mode);
     this.app.renderer.resize(L.size.w, L.size.h, this.resolutionFor(mode));
     this.felt.layout(L, mode);
+    this.layoutEnv(L);
     this.sizeCards(L);
     this.sizeChips(L);
     if (this.game) this.settle(this.game);
@@ -809,6 +733,10 @@ export class PokerScene {
    *  false) so a StrictMode remount doesn't re-download them. */
   destroy(): void {
     this.app.canvas.removeEventListener('pointerdown', this.skip);
+    this.app.canvas.removeEventListener('pointermove', this.onPointerMove);
+    // Safe even when never attached (create() only adds it when the API
+    // exists) — removeEventListener on an unregistered listener is a no-op.
+    globalThis.removeEventListener('deviceorientation', this.onDeviceOrientation);
     this.anim?.kill();
     this.anim = null;
     for (const tl of this.loose) tl.kill();
@@ -818,6 +746,7 @@ export class PokerScene {
     for (const c of this.cards.hero) c.killTweens();
     for (const slot of ['left', 'center', 'right'] as const)
       for (const c of this.cards.bots[slot]) c.killTweens();
+    this.felt.destroy();
     this.app.destroy({ removeView: true }, { children: true, texture: false, textureSource: false });
   }
 }
