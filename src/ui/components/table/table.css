@@ -399,6 +399,9 @@
 /* Reduced motion: no drain — a static full orange ring. */
 @media (prefers-reduced-motion: reduce) {
   .botseat-acting .acting-ring-progress { animation: none; stroke-dashoffset: 0; }
+  /* Decorative glow pulse: freeze at its resting (0%/100% keyframe) look
+     instead of the mid-pulse peak, so it doesn't read as a bigger halo. */
+  .botseat-acting .botseat-avatar-wrap::after { animation: none; opacity: 0.45; transform: scale(1); }
 }
 /* GG-style numeric level chip on the avatar ring. */
 .seat-level {
