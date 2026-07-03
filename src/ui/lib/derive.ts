@@ -1,5 +1,9 @@
 import type { Card, GameState } from '../../engine/types';
 import { evaluateHand, compareHandRank } from '../../engine/evaluator';
+import { LEARNING_PATH } from '../../tutorial/content/learningPath';
+import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
+import { isStepComplete } from '../../tutorial/progress/progressReducer';
+import type { Progress } from '../../tutorial/types';
 
 const key = (c: Card) => `${c.rank}${c.suit}`;
 
@@ -75,4 +79,25 @@ export function canDealNextHand(game: GameState): boolean {
   const hero = game.seats.find((s) => s.isHuman);
   if (!hero || hero.stack === 0) return false;
   return game.seats.filter((s) => s.stack > 0).length >= 2;
+}
+
+/** Count of learning-path steps completed so far. Single source of truth for
+ *  both the HUD level ring (AppFrame.tsx) and the felt's hero avatar level
+ *  badge (TableScene.tsx) — they must never drift apart. */
+export function completedStepCount(progress: Progress): number {
+  return LEARNING_PATH.filter((step) => isStepComplete(step, progress, QUIZZES_BY_ID)).length;
+}
+
+/** The learner's displayed level: one more than steps completed, so a fresh
+ *  learner starts at level 1. */
+export function learnerLevel(progress: Progress): number {
+  return completedStepCount(progress) + 1;
+}
+
+/** The hero's live chip stack, or `startingStack` before the first deal
+ *  (`game === null`, i.e. pre-first-hand or between sessions). */
+export function heroChipBalance(game: GameState | null, startingStack: number): number {
+  if (!game) return startingStack;
+  const hero = game.seats.find((s) => s.isHuman);
+  return hero ? hero.stack : startingStack;
 }

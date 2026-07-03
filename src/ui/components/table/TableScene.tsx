@@ -10,7 +10,7 @@ import type { GameState, Seat as SeatState } from '../../../engine/types';
 import { Seat, StackAmount, type ActionBubble } from './Seat';
 import { botIdFor, type BotId } from './BotFace';
 import { Table } from './Table';
-import { blindSeats, isShowdown, winnerNames, winningCardKeys } from '../../lib/derive';
+import { blindSeats, isShowdown, winnerNames, winningCardKeys, learnerLevel } from '../../lib/derive';
 import { deriveEmotion, chipLeaderProud, handTell, type Emotion } from '../../lib/botEmotion';
 import { useGazeDirector, gazeVector } from '../../hooks/useGazeDirector';
 import { useCountUp } from '../../hooks/useCountUp';
@@ -19,9 +19,6 @@ import { useSettingsStore, prefersReducedMotion } from '../../store/settingsStor
 import { useFitScale } from '../../hooks/useFitScale';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { BOT_DELAY_MS } from '../../store/gameStore';
-import { LEARNING_PATH } from '../../../tutorial/content/learningPath';
-import { QUIZZES_BY_ID } from '../../../tutorial/content/quizzes';
-import { isStepComplete } from '../../../tutorial/progress/progressReducer';
 import { tableLayout, type LayoutMode, type Pt, type TableLayout } from '../../../scene/layout';
 import { resolveTier, type QualityTier } from '../../../scene/quality';
 import { PokerScene } from '../../../scene/PokerScene';
@@ -162,9 +159,7 @@ function SceneOverlay({
   const emote = emoteFor(game, winners, opponents, pot);
   const gazeMap = useGazeDirector(game);
 
-  const done = useProgressStore(
-    (s) => LEARNING_PATH.filter((step) => isStepComplete(step, s.progress, QUIZZES_BY_ID)).length,
-  );
+  const heroLevel = useProgressStore((s) => learnerLevel(s.progress));
 
   const buttonIdx = opponents.findIndex((s) => s.id === game.buttonSeatId);
   const dealerSlot = hero && hero.id === game.buttonSeatId ? 'hero' : POSITIONS[buttonIdx] ?? 'hero';
@@ -246,7 +241,10 @@ function SceneOverlay({
         >
           {/* Hero hole cards are drawn by the Pixi scene (CardActor). */}
           <div className={`hero-plate${heroActing ? ' hero-plate-acting' : ''}`}>
-            <span className="seat-level seat-level-hero" key={done}>{done + 1}</span>
+            {/* Namespaced key (not the bare number): `heroLevel` starts at 1,
+                the same small-integer range as a sibling's `heroBubble.seq`
+                key below — an un-namespaced key collided with it. */}
+            <span className="seat-level seat-level-hero" key={`level-${heroLevel}`}>{heroLevel}</span>
             <span className="hero-you">YOU</span>
             {blindOf(hero.id) && <span className="badge badge-blind">{blindOf(hero.id)}</span>}
             <span className="hero-stack"><StackAmount value={hero.stack} /></span>

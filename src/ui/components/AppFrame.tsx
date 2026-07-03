@@ -1,12 +1,23 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
+import { useGameStore, HERO_STARTING_STACK } from '../store/gameStore';
+import { useSettingsStore, prefersReducedMotion } from '../store/settingsStore';
 import { LEARNING_PATH } from '../../tutorial/content/learningPath';
-import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
-import { isStepComplete } from '../../tutorial/progress/progressReducer';
+import { completedStepCount, learnerLevel, heroChipBalance } from '../lib/derive';
+import { useCountUp } from '../hooks/useCountUp';
 import { useSound } from '../hooks/useSound';
 import { playSfx } from '../lib/sound';
+import { subscribe, isReady } from '../../scene/readyState';
 import { SettingsModal } from './SettingsModal';
 
 /* Session-scoped high-water mark of the step count we've already celebrated.
@@ -85,13 +96,19 @@ interface AppFrameProps {
   children: ReactNode;
 }
 
-/** Run-progress chips in the header: one chip per learning step, lit as you
- *  complete them. Each coin-flips on hover; the newest earned chip blooms a
- *  burst + sting the first time we observe a higher count this session. */
-function ProgressChips() {
+/** SVG level-ring HUD (spec §7): fill fraction is completed steps ÷ total
+ *  learning-path steps — the exact derivation the old `ProgressChips` row
+ *  used, now shared via `derive.ts` with the felt's hero avatar level badge
+ *  (TableScene.tsx) so the two numbers can never drift apart. The level
+ *  number sits centered inside the ring. Preserves `ProgressChips`' level-up
+ *  cue (the `levelUp` SFX, fired the first time a session observes a higher
+ *  step count) — the old per-chip burst is now a pulse around the ring. */
+function LevelRing() {
   const progress = useProgressStore((s) => s.progress);
-  const done = LEARNING_PATH.filter((step) => isStepComplete(step, progress, QUIZZES_BY_ID)).length;
+  const reducedMotion = useSettingsStore((s) => prefersReducedMotion(s.settings));
+  const done = completedStepCount(progress);
   const total = LEARNING_PATH.length;
+  const level = learnerLevel(progress);
   const [burst, setBurst] = useState(0);
 
   useEffect(() => {
@@ -106,48 +123,231 @@ function ProgressChips() {
     }
   }, [done]);
 
+  const radius = 11.5;
+  const circumference = 2 * Math.PI * radius;
+  const fraction = total > 0 ? done / total : 0;
+  const dashoffset = circumference * (1 - fraction);
+
   return (
     <div
-      className="hdr-chips"
-      title={`${done} of ${total} steps complete`}
+      className="hud-ring-wrap"
       role="progressbar"
       aria-valuenow={done}
       aria-valuemin={0}
       aria-valuemax={total}
+      title={`${done} of ${total} steps complete`}
     >
-      {Array.from({ length: total }).map((_, i) => {
-        const earned = i < done;
-        return (
-          <span key={i} className="hdr-chip-wrap">
-            <img
-              src={earned ? '/assets/chip-orange.png' : '/assets/chip-dark.png'}
-              alt=""
-              className={`hdr-chip${earned ? ' hdr-chip-earned' : ''}`}
+      <svg className="hud-ring" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+        <circle className="hud-ring-track" cx="14" cy="14" r={radius} />
+        <circle
+          className="hud-ring-fill"
+          cx="14"
+          cy="14"
+          r={radius}
+          style={{
+            strokeDasharray: circumference,
+            strokeDashoffset: dashoffset,
+            // Settings-forced reduced motion isn't covered by the global
+            // `prefers-reduced-motion` CSS kill-switch (that only sees the OS
+            // signal), so the fill snap needs an explicit override here.
+            transitionDuration: reducedMotion ? '0s' : undefined,
+          }}
+        />
+      </svg>
+      <span className="hud-ring-level">{level}</span>
+      {!reducedMotion && (
+        <AnimatePresence>
+          {burst > 0 && (
+            <motion.span
+              key={burst}
+              className="hud-ring-pulse"
+              aria-hidden="true"
+              initial={{ opacity: 0.85, scale: 0.6 }}
+              animate={{ opacity: 0, scale: 1.9 }}
+              transition={{ duration: 0.7, ease: 'easeOut' }}
+              onAnimationComplete={() => setBurst(0)}
             />
-            {earned && i === done - 1 && (
-              <AnimatePresence>
-                {burst > 0 && (
-                  <motion.span
-                    key={burst}
-                    className="hdr-burst"
-                    aria-hidden="true"
-                    initial={{ opacity: 0.85, scale: 0.35 }}
-                    animate={{ opacity: 0, scale: 2.2 }}
-                    transition={{ duration: 0.7, ease: 'easeOut' }}
-                    onAnimationComplete={() => setBurst(0)}
-                  />
-                )}
-              </AnimatePresence>
-            )}
-          </span>
-        );
-      })}
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }
 
+/** Chip-balance readout: the hero's live stack from `gameStore` (or the
+ *  starting stack before the first deal), rolling via the existing
+ *  `useCountUp` odometer. A `+n` pill appears on an increase only — never on
+ *  a decrease, and never on the null→number transition at first deal (the
+ *  hero's stack can only hold or shrink from blinds between "no game yet"
+ *  and "hand dealt", so that transition is never itself an increase). Keyed
+ *  on the balance value so each new increase gets a fresh DOM node and
+ *  replays the CSS pop from scratch. */
+function ChipBalance() {
+  const game = useGameStore((s) => s.game);
+  const reducedMotion = useSettingsStore((s) => prefersReducedMotion(s.settings));
+  const balance = heroChipBalance(game, HERO_STARTING_STACK);
+  const shown = useCountUp(balance);
+  const prevRef = useRef(balance);
+  const [delta, setDelta] = useState<number | null>(null);
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    prevRef.current = balance;
+    if (balance > prev) setDelta(balance - prev);
+  }, [balance]);
+
+  // Dismissal is a plain timer (not `onAnimationEnd`) so it works the same
+  // whether the pop is animating, snapped by the global reduced-motion
+  // kill-switch, or snapped by the in-app reducedMotion setting.
+  useEffect(() => {
+    if (delta === null) return;
+    const t = window.setTimeout(() => setDelta(null), reducedMotion ? 500 : 900);
+    return () => window.clearTimeout(t);
+  }, [delta, reducedMotion]);
+
+  return (
+    <div className="hud-balance">
+      <img src="/assets/chip-orange.png" alt="" className="hud-balance-chip" aria-hidden="true" />
+      <span className="hud-balance-amount">{shown.toLocaleString()}</span>
+      {delta !== null && (
+        <span
+          key={balance}
+          className={`hud-balance-pop${reducedMotion ? ' hud-balance-pop-static' : ''}`}
+          aria-hidden="true"
+        >
+          +{delta.toLocaleString()}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** HUD cluster in the header: level ring, chip balance, and a reserved empty
+ *  slot for the Phase 4 streak feature. Replaces the old per-step chip row. */
+function Hud() {
+  return (
+    <div className="hud">
+      <LevelRing />
+      <ChipBalance />
+      <span className="hud-streak-slot" aria-hidden="true" />
+    </div>
+  );
+}
+
+/* Minimum time the splash stays up even if fonts + assets resolve
+ * immediately (avoids an imperceptible flash on a warm cache). */
+const SPLASH_MIN_MS = 400;
+/* Opacity fade-out length once every gate condition is satisfied. Kept even
+ * under reduced motion — only the spinner's rotation is cut there. */
+const SPLASH_FADE_MS = 300;
+/* Hard cap: the assets-ready gate can stall forever if WebGL init fails and
+ * the scene falls back to the DOM renderer before ever calling
+ * `createAssets`, or the GPU context is lost before the first frame — the
+ * splash must never be able to hang the app on a signal that may never fire. */
+const SPLASH_HARD_CAP_MS = 4000;
+
+/* Module-scope: true once the splash has been shown & dismissed for this page
+ * load. AppFrame remounts on every screen change (see `celebratedDone`
+ * above), so this can't be component state. The lazy `useState` initializer
+ * below only READS this value during render (never mutates it), so
+ * StrictMode's double-invoked render is safe; it's WRITTEN only from the
+ * effect that finishes the hide sequence. */
+let splashDone = false;
+
+/** Resolves true once `document.fonts` reports ready — or immediately if the
+ *  Font Loading API is unavailable (mirrors `scene/assets.ts`'s Oswald wait,
+ *  which degrades the same way). */
+function useFontsReady(): boolean {
+  const [ready, setReady] = useState(() => !document.fonts);
+  useEffect(() => {
+    if (ready) return;
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready]);
+  return ready;
+}
+
+/** Full-viewport branded preload gate — wordmark + a rotating chip mark —
+ *  shown from first paint until fonts (always) and, only when booting into
+ *  the WebGL Play route, the scene's first asset batch (`scene/readyState.ts`)
+ *  are ready; hides after a 400ms minimum and a 300ms fade, with a 4s hard
+ *  cap so a stalled gate can never hang the app. Once-per-load via the
+ *  `splashDone` module flag above. Portaled to `document.body`: `.frame`'s
+ *  `transform: scale(...)` would otherwise reparent a `position: fixed`
+ *  child's containing block to `.frame` itself (and its `overflow: hidden`
+ *  would clip it) — see the `.settings-backdrop` comment in screens.css for
+ *  the same quirk — so a true full-viewport overlay above `.app-stage` has
+ *  to live outside that subtree. */
+function Splash() {
+  const [visible, setVisible] = useState(() => !splashDone);
+  const [fading, setFading] = useState(false);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [hardCapped, setHardCapped] = useState(false);
+
+  const fontsReady = useFontsReady();
+  const assetsReady = useSyncExternalStore(subscribe, isReady);
+  const view = useNavStore((s) => s.view);
+  const renderer = useSettingsStore((s) => s.settings.renderer);
+  const reducedMotion = useSettingsStore((s) => prefersReducedMotion(s.settings));
+
+  useEffect(() => {
+    if (!visible) return;
+    const minTimer = window.setTimeout(() => setMinTimeElapsed(true), SPLASH_MIN_MS);
+    const hardCapTimer = window.setTimeout(() => setHardCapped(true), SPLASH_HARD_CAP_MS);
+    return () => {
+      window.clearTimeout(minTimer);
+      window.clearTimeout(hardCapTimer);
+    };
+  }, [visible]);
+
+  // Only the Play route ever spins up the WebGL scene; the DOM renderer
+  // never calls `createAssets`, so the gate must not wait on it there.
+  const needsAssets = view.name === 'free' && renderer !== 'dom';
+  const gateOpen = fontsReady && (!needsAssets || assetsReady);
+  const ready = (gateOpen && minTimeElapsed) || hardCapped;
+
+  // `hidingRef` makes this fire exactly once. It deliberately does NOT depend
+  // on `fading`: setting `fading` true is itself a state update inside this
+  // effect, and including it in the deps would make React tear down (and
+  // cancel the pending timeout of) this very effect on the next render —
+  // the fade would start but `setVisible(false)` would never fire.
+  const hidingRef = useRef(false);
+  useEffect(() => {
+    if (!visible || hidingRef.current || !ready) return;
+    hidingRef.current = true;
+    setFading(true);
+    const t = window.setTimeout(() => {
+      splashDone = true;
+      setVisible(false);
+    }, SPLASH_FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [visible, ready]);
+
+  if (!visible) return null;
+
+  return createPortal(
+    <div
+      className={`splash${fading ? ' splash-fading' : ''}${reducedMotion ? ' splash-static' : ''}`}
+      aria-hidden="true"
+    >
+      <img src="/assets/logo-wordmark.png" alt="" className="splash-wordmark" />
+      <span className="splash-spinner">
+        <img src="/assets/chip-orange.png" alt="" className="splash-spinner-chip" />
+      </span>
+    </div>,
+    document.body,
+  );
+}
+
 /** The product's screen chrome: a centered rounded frame floating on the suit
- *  field, with the logo wordmark, progress chips and LEARN / PLAY navigation. */
+ *  field, with the logo wordmark, the level-ring/balance HUD and LEARN / PLAY
+ *  navigation. Also mounts the once-per-load branded splash (portaled out to
+ *  `document.body` — see `Splash`'s doc comment). */
 export function AppFrame({ variant = 'learn', active, headerExtra, children }: AppFrameProps) {
   const go = useNavStore((s) => s.go);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -160,13 +360,14 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
 
   return (
     <div className={`frame frame-${variant}`}>
+      <Splash />
       <header className={`frame-header frame-header-${variant}`}>
         <div className="frame-brand">
           <img src="/assets/logo-wordmark.png" alt="ChipChamp" className="frame-logo" />
           {headerExtra && <span className="frame-header-extra">{headerExtra}</span>}
         </div>
         <div className="frame-right">
-          <ProgressChips />
+          <Hud />
           <SfxToggle />
           <SettingsToggle onOpen={() => setSettingsOpen(true)} buttonRef={gearRef} />
           <nav className="nav-switch" role="tablist">

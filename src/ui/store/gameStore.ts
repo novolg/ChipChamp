@@ -34,9 +34,13 @@ export interface GameStore {
   playerAction: (action: Action) => void;
 }
 
+/** Hero's stack before the first deal — the HUD balance shows this while
+ *  `game === null` (src/ui/lib/derive.ts `heroChipBalance`). */
+export const HERO_STARTING_STACK = 1000;
+
 const DEFAULT_TABLE: TableConfig = {
   seats: [
-    { id: 0, name: 'You', isHuman: true, stack: 1000 },
+    { id: 0, name: 'You', isHuman: true, stack: HERO_STARTING_STACK },
     { id: 1, name: 'Ava', isHuman: false, stack: 1000 },
     { id: 2, name: 'Ben', isHuman: false, stack: 1000 },
     { id: 3, name: 'Cleo', isHuman: false, stack: 1000 },

@@ -11,6 +11,12 @@ import {
 import type { Card, Suit } from '../engine/types';
 import { rankLabel } from '../engine/evaluator';
 import { tableLayout } from './layout';
+import { markReady } from './readyState';
+
+// Re-exported for plan fidelity (the splash gate's canonical import is the
+// pixi-free `readyState.ts` directly — AppFrame must never statically import
+// this module, which pulls in pixi.js).
+export { isReady, subscribe } from './readyState';
 
 /** A poker-chip denomination. Matches the physical chip PNGs in `public/assets`. */
 export type ChipDenom = 1 | 5 | 10 | 25 | 100;
@@ -280,6 +286,10 @@ export async function createAssets(renderer: Renderer): Promise<SceneAssets> {
     for (const texture of cardCache.values()) texture.destroy(true);
     cardCache.clear();
   }
+
+  // Flips the splash's assets-ready gate (src/scene/readyState.ts). Idempotent,
+  // so re-entering the Play screen (a fresh `createAssets` call) is harmless.
+  markReady();
 
   return {
     cardFace,

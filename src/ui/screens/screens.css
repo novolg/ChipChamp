@@ -107,53 +107,152 @@
 .settings-toggle:active { transform: translateY(0) scale(0.92); }
 .settings-toggle svg { display: block; }
 
-/* ---- Run-progress chips in the header: one chip per learning step, lit as
-   they're earned. Each coin-flips on hover (the gesture the old HUD chip had);
-   the newest chip light-transitions in + blooms a burst on level-up. ---- */
-.hdr-chips {
+/* ---- HUD: level ring + chip balance in the header (replaces the old
+   per-step chip row). The ring's fill fraction and the balance's odometer
+   both drive off store state in AppFrame.tsx; this block is presentation
+   only. ---- */
+.hud {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 10px;
 }
-.hdr-chip-wrap {
+.hud-ring-wrap {
   position: relative;
-  display: inline-flex;
+  flex: none;
+  width: 28px;
+  height: 28px;
 }
-.hdr-chip {
-  width: 23px;
-  height: 23px;
-  opacity: 0.5;
-  filter: drop-shadow(0 2px 0 #14141e);
-  backface-visibility: hidden;
-  transition: opacity var(--t-reveal) var(--ease-out), filter var(--t-reveal) var(--ease-out);
-}
-.hdr-chip-earned {
-  opacity: 1;
-  filter: drop-shadow(0 2px 0 #b87500) drop-shadow(0 0 7px rgba(255, 165, 2, 0.45));
-}
-/* Coin-flip on rollover — earned and unearned alike. */
-.hdr-chip-wrap:hover .hdr-chip {
-  animation: chip-flip-y 0.6s var(--ease-out);
-}
-@keyframes chip-flip-y {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(360deg); }
-}
-/* Level-up burst centered on the newest earned chip (scale/opacity via Framer). */
-.hdr-burst {
+.hud-ring {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 38px;
-  height: 38px;
-  margin: -19px 0 0 -19px;
+  inset: 0;
+  transform: rotate(-90deg); /* fill starts at 12 o'clock */
+}
+.hud-ring-track {
+  fill: none;
+  stroke: var(--c-border-2);
+  stroke-width: 3;
+}
+.hud-ring-fill {
+  fill: none;
+  stroke: var(--c-blue);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--t-reveal) var(--ease-out);
+  filter: drop-shadow(0 0 4px rgba(0, 110, 253, 0.55));
+}
+.hud-ring-level {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text);
+  font-size: 11px;
+  font-weight: 900;
+  font-style: italic;
+}
+/* Level-up pulse around the ring (scale/opacity via Framer); replaces the old
+   per-chip burst. Skipped entirely under reduced motion — the ring just
+   snaps to its new fill/level (the `levelUp` SFX still fires either way). */
+.hud-ring-pulse {
+  position: absolute;
+  inset: -7px;
   border-radius: 50%;
-  border: 2px solid var(--c-orange-hi);
-  background: radial-gradient(circle, rgba(255, 209, 102, 0.35), transparent 68%);
-  box-shadow: 0 0 22px rgba(255, 209, 102, 0.7), inset 0 0 12px rgba(255, 209, 102, 0.5);
+  border: 2px solid var(--c-blue-text);
+  background: radial-gradient(circle, rgba(59, 143, 255, 0.35), transparent 68%);
+  box-shadow: 0 0 20px rgba(59, 143, 255, 0.65), inset 0 0 10px rgba(59, 143, 255, 0.4);
   pointer-events: none;
   z-index: 4;
 }
+.hud-balance {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+}
+.hud-balance-chip {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.hud-balance-amount {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-orange-hi);
+  letter-spacing: 0.3px;
+}
+/* "+n" pill: pops up and fades, keyed on the new balance value in AppFrame.tsx
+   so each increase mounts a fresh node and replays the animation. */
+.hud-balance-pop {
+  position: absolute;
+  top: -6px;
+  right: 2px;
+  color: var(--c-green);
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+  animation: hud-pop 0.9s var(--ease-out) forwards;
+}
+.hud-balance-pop-static {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+@keyframes hud-pop {
+  0% { opacity: 0; transform: translateY(4px); }
+  20% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+/* Reserved for the Phase 4 streak feature — intentionally empty. */
+.hud-streak-slot { width: 0; }
+
+/* ---- Branded splash: full-viewport preload gate (AppFrame.tsx `Splash`,
+   portaled to document.body — see its doc comment for why). Sits above
+   .app-stage (z-index 1) and the settings modal (100). ---- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-6);
+  background: var(--c-bg);
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+.splash-fading { opacity: 0; }
+.splash-wordmark {
+  display: block;
+  height: 64px;
+  filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.45));
+}
+.splash-spinner {
+  display: block;
+  width: 34px;
+  height: 34px;
+  animation: splash-spin 1.1s linear infinite;
+}
+.splash-spinner-chip {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 3px 0 var(--c-orange-edge));
+}
+@keyframes splash-spin {
+  to { transform: rotate(360deg); }
+}
+/* Reduced motion: static mark, fade only (system query handled globally in
+   global.css; the in-app settings override is an explicit class here since
+   that signal isn't visible to a CSS media query). */
+.splash-static .splash-spinner { animation: none; }
 
 /* Segmented Learn / Free Play switcher: sunken track + a sliding spring thumb
    (.nav-thumb IS the active surface; segs are fixed-width so it lands true). */
@@ -953,22 +1052,40 @@
   }
 
   /* Header: tighten hard so the LEARN/PLAY switch always fits. Drop the
-     progress chips AND the "BLINDS · HAND" extra text (it was pushing the
-     PLAY pill off-screen). */
-  .frame-header { height: 50px; padding: 0 10px; }
+     "BLINDS · HAND" extra text (it was pushing the PLAY pill off-screen);
+     the HUD keeps the ring + balance but drops its gap and the reserved
+     Phase-4 streak slot. */
+  .frame-header { height: 50px; padding: 0 8px; }
   .frame-logo { height: 26px; }
   .frame-brand { gap: 8px; }
   .frame-header-extra { display: none; }
-  .frame-right { gap: 8px; }
-  .hdr-chips { display: none; }
-  .sfx-toggle { width: 32px; height: 32px; }
-  .settings-toggle { width: 32px; height: 32px; }
+  .frame-right { gap: 3px; }
+  /* The HUD is new real estate on a header that was already tuned to the
+     millimeter (brand + sfx + settings + nav-switch alone eat ~90% of a
+     390px viewport) — every child here (including the sfx/settings/nav-seg
+     rules below) is trimmed just enough to make room, not for its own sake. */
+  .hud { gap: 3px; }
+  .hud-ring-wrap { width: 18px; height: 18px; }
+  .hud-ring-level { font-size: 8px; }
+  .hud-ring-pulse { inset: -5px; }
+  .hud-balance {
+    gap: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .hud-balance-chip { display: none; }
+  .hud-balance-amount { font-size: 10px; }
+  .hud-balance-pop { font-size: 9px; top: -8px; right: -2px; }
+  .hud-streak-slot { display: none; }
+  .sfx-toggle { width: 28px; height: 28px; }
+  .settings-toggle { width: 28px; height: 28px; }
   .nav-switch { padding: 2px; }
-  .nav-seg { width: 64px; font-size: 12px; padding: 7px 0; }
-  .nav-thumb { width: 64px; }
+  .nav-seg { width: 50px; font-size: 11px; padding: 6px 0; }
+  .nav-thumb { width: 50px; }
   /* Match the mobile seg width so the sliding thumb lands on PLAY (was the
-     hardcoded desktop 108px → mismatch). 64px seg + 4px gap = 68px. */
-  .nav-thumb[data-pos='free'] { transform: translateX(68px); }
+     hardcoded desktop 108px → mismatch). 50px seg + 4px gap = 54px. */
+  .nav-thumb[data-pos='free'] { transform: translateX(54px); }
 
   /* Reclaim the desktop 32px body gutters — they crowd/clip the narrow felt
      and the learn/lesson columns. The play screen keeps its own .play-grid
