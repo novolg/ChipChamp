@@ -10,11 +10,12 @@ import {
   type Texture,
 } from 'pixi.js';
 import { gsap } from 'gsap';
-import { tableLayout, type LayoutMode, type SeatSlot, type TableLayout, type Pt } from './layout';
+import { tableLayout, BOT_SLOTS, type LayoutMode, type SeatSlot, type TableLayout, type Pt } from './layout';
 import type { QualityTier } from './quality';
 import type { GameState } from '../engine/types';
 import { createAssets, type SceneAssets } from './assets';
 import { CardActor, type CardMotion } from './actors/CardActor';
+import { ChipStackActor } from './actors/ChipStackActor';
 import {
   settleCards,
   boardSlotPositions,
@@ -49,13 +50,33 @@ function feltStyle(mode: LayoutMode): FeltStyle {
     : { railW: 12, showDeck: true, showWatermark: true, deckW: 46, watermarkSize: 46 };
 }
 
+/** All four bet-anchor slots (the three bot slots plus hero). */
+const ALL_SLOTS: readonly SeatSlot[] = [...BOT_SLOTS, 'hero'];
+
+/** Chip-disc on-table size per layout mode, scaled down for portrait the same
+ *  ~0.75x ratio as the card sizes in layout.ts (cardW 46 vs 62). */
+function chipDiscSize(mode: LayoutMode): number {
+  return mode === 'portrait' ? 15 : 20;
+}
+
+/** Brand-palette confetti colors (mirrors ui/components/Confetti.tsx's
+ *  COLORS array so the scene's burst reads the same as the DOM fallback). */
+const CONFETTI_COLORS = [0xffa502, 0x006efd, 0xff4757, 0x2ed573, 0xffd166];
+
+/** Narrow an `unknown` scene-cue param to a SeatSlot, or null if it isn't
+ *  one — a cheap runtime guard at the director→scene channel boundary
+ *  (params arrive as `Record<string, unknown>`). */
+function seatSlotOf(v: unknown): SeatSlot | null {
+  return v === 'left' || v === 'center' || v === 'right' || v === 'hero' ? v : null;
+}
+
 /**
  * FeltActor — draws today's felt look purely from `layout.ts` geometry:
  * navy radial felt ellipse, rail ring, racetrack line, vignette, tiled noise
  * overlay and a faint brand watermark. Rebuilt wholesale on a layout change
- * (cheap; static geometry). Cards/pot/chips are NOT drawn here — the cards
- * live in the play layer (CardActor); pot/chips stay in the DOM overlay until
- * Task 11. Exposes the drawn deck stack so the deal ritual can riffle it.
+ * (cheap; static geometry). Cards/chips are NOT drawn here — cards live in
+ * the play layer (CardActor) and chip stacks in the fx layer (ChipStackActor).
+ * Exposes the drawn deck stack so the deal ritual can riffle it.
  */
 class FeltActor {
   readonly view = new Container();
@@ -204,11 +225,11 @@ class FeltActor {
 
 /**
  * The PixiJS scene. Owns the Application, the four ordered layers (env / table
- * / play / fx), the FeltActor and the card actors (board / hero / bot). Task 10
- * moves all cards into the scene: `sync` settles them to the authoritative
- * GameState when idle, and `fx` plays the director's scene cues (deal ritual,
- * board reveals, rim flash, turn spotlight). Pot/chips stay in the DOM overlay
- * until Task 11.
+ * / play / fx), the FeltActor, the card actors (board / hero / bot), and the
+ * chip actors (per-slot bet stacks + the pot cluster). `sync` settles cards
+ * and chips to the authoritative GameState when idle, and `fx` plays the
+ * director's scene cues (deal ritual, board reveals, rim flash, turn
+ * spotlight, bet stacks, street sweep, win push, confetti).
  */
 export class PokerScene {
   private readonly app: Application;
@@ -217,6 +238,19 @@ export class PokerScene {
   private readonly assets: SceneAssets;
   private readonly layers: { env: Container; table: Container; play: Container; fx: Container };
   private readonly cards: SceneCards;
+  /** The bet-stack actor per seat slot, plus the pot cluster. */
+  private readonly chips: { bets: Record<SeatSlot, ChipStackActor>; pot: ChipStackActor };
+  /** Shared motion getters (also handed to every ChipStackActor, incl. the
+   *  transient sweep-ghosts created on demand). */
+  private readonly motion: CardMotion;
+  /** Chip actors with a currently in-flight grow/sweep/push tween —
+   *  persistent bet/pot actors AND transient sweep-ghosts alike — so
+   *  `skip()` can fast-forward them. Self-pruning on the next add. */
+  private readonly chipFx = new Set<ChipStackActor>();
+  /** Transient sweep-ghost actors (own Pixi view, not part of `chips`) that
+   *  need their view explicitly destroyed on teardown/mode-swap, not just
+   *  their tween killed. */
+  private readonly chipGhosts = new Set<ChipStackActor>();
 
   /** Current motion settings (pushed from TableScene); read by CardActor. */
   private speed = 1;
@@ -253,6 +287,7 @@ export class PokerScene {
     this.layers.table.addChild(this.felt.view);
 
     const motion: CardMotion = { speed: () => this.speed, reducedMotion: () => this.reduced };
+    this.motion = motion;
     const back = assets.cardBack();
     const mk = () => new CardActor(back, motion);
     this.cards = {
@@ -270,7 +305,18 @@ export class PokerScene {
       for (const c of this.cards.bots[slot]) this.layers.play.addChild(c.view);
     for (const c of this.cards.hero) this.layers.play.addChild(c.view);
 
+    // Chip stacks render above the felt in the fx layer (topmost), alongside
+    // the rim flash / spotlight / confetti overlays already there.
+    const mkChip = () => new ChipStackActor((d) => this.assets.chip(d), motion);
+    this.chips = {
+      bets: { left: mkChip(), center: mkChip(), right: mkChip(), hero: mkChip() },
+      pot: mkChip(),
+    };
+    for (const slot of ALL_SLOTS) this.layers.fx.addChild(this.chips.bets[slot].view);
+    this.layers.fx.addChild(this.chips.pot.view);
+
     this.sizeCards(tableLayout(mode));
+    this.sizeChips(tableLayout(mode));
   }
 
   /** The Pixi canvas element (append this into the host / read for context-loss). */
@@ -339,9 +385,10 @@ export class PokerScene {
     this.app.render();
   }
 
-  /** Settle-to-truth. Captures the snapshot always; only hard-sets the cards
-   *  when the deal timeline is idle (an active animation is already driving them
-   *  toward this same truth). */
+  /** Settle-to-truth. Captures the snapshot always; only hard-sets cards +
+   *  chips when the deal timeline is idle (an active animation is already
+   *  driving the cards toward this same truth; chip actors additionally
+   *  self-guard via their own in-flight tween, see `settleChips`). */
   sync(game: GameState): void {
     this.game = game;
     if (this.anim && this.anim.isActive()) return;
@@ -349,7 +396,27 @@ export class PokerScene {
   }
 
   private settle(game: GameState): void {
-    settleCards(this.cards, game, this.assets, this.fourColor, tableLayout(this.mode));
+    const L = tableLayout(this.mode);
+    settleCards(this.cards, game, this.assets, this.fourColor, L);
+    this.settleChips(game);
+  }
+
+  /** Settle-to-truth for the bet stacks + pot cluster: stacks match
+   *  `committedThisStreet` per seat exactly while betting (empty on any other
+   *  phase — handComplete included); the pot cluster mirrors `pots[].amount`.
+   *  Each actor's own `place()` no-ops while a grow/sweep/push tween owns it,
+   *  so this is safe to call on every sync regardless of what's mid-flight. */
+  private settleChips(game: GameState): void {
+    const betting = game.phase === 'betting';
+    const hero = game.seats.find((s) => s.isHuman);
+    const bots = game.seats.filter((s) => !s.isHuman);
+    BOT_SLOTS.forEach((slot, i) => {
+      const seat = bots[i];
+      this.chips.bets[slot].place(betting && seat ? seat.committedThisStreet : 0);
+    });
+    this.chips.bets.hero.place(betting && hero ? hero.committedThisStreet : 0);
+    const pot = game.pots.reduce((sum, p) => sum + p.amount, 0);
+    this.chips.pot.place(pot);
   }
 
   /** Director scene-channel cue. Never throws on a recipe: known-but-unhandled
@@ -371,12 +438,18 @@ export class PokerScene {
       case 'turnSpotlight':
         this.playTurnSpotlight();
         break;
-      // DOM overlay owns confetti in Phase 1 (FreePlayScreen win-overlay).
-      case 'confetti':
-      // Chip/pot motion arrives with the chip actors in Task 11.
       case 'betStack':
+        this.playBetStack(params.slot);
+        break;
       case 'sweep':
+        this.playSweep(Array.isArray(params.from) ? params.from : []);
+        break;
       case 'winPush':
+        this.playWinPush(params.winnerSlot);
+        break;
+      case 'confetti':
+        this.playConfetti(Number(params.count) || 0);
+        break;
       // Camera moves are a later phase.
       case 'camPunch':
       case 'camZoomSeat':
@@ -513,9 +586,121 @@ export class PokerScene {
     this.trackLoose(tl);
   }
 
-  /** Jump the in-flight deal to its rest state (canvas tap). */
+  /** Track a chip actor with a currently in-flight grow/sweep/push tween so
+   *  `skip()` can fast-forward it. Self-pruning: entries whose tween has
+   *  already completed are dropped on the next call rather than needing an
+   *  onComplete hook (which the actors already use internally). */
+  private trackChipFx(actor: ChipStackActor): void {
+    for (const a of this.chipFx) if (!a.isAnimating()) this.chipFx.delete(a);
+    this.chipFx.add(actor);
+  }
+
+  /** ACTION (bet/raise/allin): animate the acting seat's stack growing by the
+   *  new chips, arcing in from the seat. Reads the REAL committed amount off
+   *  `this.game` rather than the cue's `params.amount` — the ACTION recipe's
+   *  `amount` is BB-normalized (for audio/intensity), not a chip count (same
+   *  reasoning as `playDealBoard` reading card values off `this.game.board`
+   *  instead of trusting cue params). */
+  private playBetStack(slotVal: unknown): void {
+    const slot = seatSlotOf(slotVal);
+    const game = this.game;
+    if (!slot || !game) return;
+    const seat =
+      slot === 'hero'
+        ? game.seats.find((s) => s.isHuman)
+        : game.seats.filter((s) => !s.isHuman)[BOT_SLOTS.indexOf(slot)];
+    if (!seat) return;
+    const L = tableLayout(this.mode);
+    const actor = this.chips.bets[slot];
+    actor.grow(seat.committedThisStreet, L.seats[slot]);
+    this.trackChipFx(actor);
+  }
+
+  /** SWEEP: each swept seat gets a throwaway "ghost" stack (built from the
+   *  cue's captured pre-reset `{slot, amount}` — by the time this fires,
+   *  `settleChips` has already zeroed the real bet-stack actors for the new
+   *  street, mirroring the DOM fallback's own ghost-pill sweep) that slides
+   *  into the pot and bounces it on arrival, then self-destructs. */
+  private playSweep(from: unknown[]): void {
+    const L = tableLayout(this.mode);
+    for (const entry of from) {
+      const e = entry as { slot?: unknown; amount?: unknown } | null;
+      const slot = seatSlotOf(e?.slot);
+      const amount = Number(e?.amount) || 0;
+      if (!slot || amount <= 0) continue;
+      const ghost = new ChipStackActor((d) => this.assets.chip(d), this.motion);
+      ghost.resize(chipDiscSize(this.mode));
+      ghost.moveHome(L.bets[slot]);
+      ghost.place(amount);
+      this.layers.fx.addChild(ghost.view);
+      this.chipGhosts.add(ghost);
+      ghost.sweepTo(L.pot, () => {
+        this.chips.pot.bounce();
+        this.chipGhosts.delete(ghost);
+        this.chipFx.delete(ghost);
+        ghost.view.destroy({ children: true });
+      });
+      this.trackChipFx(ghost);
+    }
+  }
+
+  /** WIN: the pot cluster glides to the winner's hole-card slot, splashes,
+   *  and clears (see ChipStackActor.pushTo). */
+  private playWinPush(slotVal: unknown): void {
+    const slot = seatSlotOf(slotVal);
+    if (!slot) return;
+    const L = tableLayout(this.mode);
+    const actor = this.chips.pot;
+    actor.pushTo(L.seatCards[slot]);
+    this.trackChipFx(actor);
+  }
+
+  /** WIN: `count` small brand-colored rects tumbling from the felt's top rim
+   *  (a plain Container of Graphics, not Pixi's ParticleContainer — v8's
+   *  Particle API needs a shared base texture per container and offers no
+   *  per-piece rotation-during-fall the way this burst wants; a few dozen
+   *  Graphics rects is cheap enough that the pooling ParticleContainer exists
+   *  for isn't worth the API friction here). Deterministic per-index jitter,
+   *  no RNG — mirrors ui/components/Confetti.tsx. */
+  private playConfetti(count: number): void {
+    if (count <= 0 || this.reduced) return;
+    const L = tableLayout(this.mode);
+    const host = new Container();
+    this.layers.fx.addChild(host);
+    const tl = gsap.timeline({ onComplete: () => host.destroy({ children: true }) });
+    for (let i = 0; i < count; i++) {
+      const piece = new Graphics()
+        .roundRect(-3, -5, 6, 10, 2)
+        .fill({ color: CONFETTI_COLORS[i % CONFETTI_COLORS.length] });
+      const startX = L.felt.cx - L.felt.rx + ((i * 37 + 11) % (L.felt.rx * 2));
+      piece.position.set(startX, L.felt.cy - L.felt.ry - 10);
+      host.addChild(piece);
+      const drift = ((i * 29) % 90) - 45;
+      const spin = (((i * 47) % 420) * Math.PI) / 180;
+      const delay = this.secsScene(((i * 13) % 12) * 50);
+      const dur = this.secsScene(1300 + ((i * 7) % 8) * 100);
+      tl.to(
+        piece,
+        { x: startX + drift, y: L.felt.cy + L.felt.ry, rotation: spin, duration: dur, ease: 'power1.in' },
+        delay,
+      );
+      tl.to(piece, { alpha: 0, duration: Math.min(dur * 0.15, this.secsScene(200)) }, delay + dur * 0.85);
+    }
+    this.trackLoose(tl);
+  }
+
+  /** ms→seconds at the current speed (rimFlash/turnSpotlight inline `/this.speed`
+   *  directly; confetti's per-piece math reads more clearly through a helper). */
+  private secsScene(ms: number): number {
+    return ms / this.speed / 1000;
+  }
+
+  /** Jump the in-flight deal + any in-flight chip fx to their rest state
+   *  (canvas tap) — nothing is left mid-flight after a skip. */
   private skip = (): void => {
     if (this.anim && this.anim.isActive()) this.anim.progress(1);
+    for (const a of this.chipFx) if (a.isAnimating()) a.finish();
+    this.chipFx.clear();
   };
 
   // --- sizing / layout -------------------------------------------------------
@@ -528,6 +713,34 @@ export class PokerScene {
     const bs = botCardSize(L);
     for (const slot of ['left', 'center', 'right'] as const)
       for (const c of this.cards.bots[slot]) c.resize(bs.w, bs.h);
+  }
+
+  private sizeChips(L: TableLayout): void {
+    const size = chipDiscSize(this.mode);
+    for (const slot of ALL_SLOTS) {
+      this.chips.bets[slot].resize(size);
+      this.chips.bets[slot].moveHome(L.bets[slot]);
+    }
+    this.chips.pot.resize(size);
+    this.chips.pot.moveHome(L.pot);
+  }
+
+  /** Kill every chip actor's in-flight tween (grow/sweep/push/bounce) and,
+   *  for transient sweep-ghosts, destroy their Pixi view too (they aren't
+   *  reachable from the recursive app.destroy the way pooled actors are,
+   *  since destroy() below is the only OTHER caller and setMode doesn't tear
+   *  down the Application). Shared by setMode (a hard layout swap) and
+   *  destroy (full teardown). */
+  private killChipFx(): void {
+    for (const g of this.chipGhosts) {
+      g.killTweens();
+      g.view.destroy({ children: true });
+    }
+    this.chipGhosts.clear();
+    for (const a of this.chipFx) a.killTweens();
+    this.chipFx.clear();
+    for (const slot of ALL_SLOTS) this.chips.bets[slot].killTweens();
+    this.chips.pot.killTweens();
   }
 
   /** Renderer resolution for a mode, from the last known fit-scale.
@@ -552,10 +765,12 @@ export class PokerScene {
     this.mode = mode;
     this.anim?.kill();
     this.anim = null;
+    this.killChipFx();
     const L = tableLayout(mode);
     this.app.renderer.resize(L.size.w, L.size.h, this.resolutionFor(mode));
     this.felt.layout(L, mode);
     this.sizeCards(L);
+    this.sizeChips(L);
     if (this.game) this.settle(this.game);
     this.app.render();
   }
@@ -579,6 +794,7 @@ export class PokerScene {
     this.anim = null;
     for (const tl of this.loose) tl.kill();
     this.loose.clear();
+    this.killChipFx();
     for (const c of this.cards.board) c.killTweens();
     for (const c of this.cards.hero) c.killTweens();
     for (const slot of ['left', 'center', 'right'] as const)

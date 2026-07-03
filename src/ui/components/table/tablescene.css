@@ -55,11 +55,25 @@
   visibility: hidden;
 }
 
-/* Live bet pill anchored on a world point. */
+/* Live bet pill anchored on a world point (used by the street label + pot
+   capsule — the bet-pill blocks themselves were removed in Task 11, chips now
+   drawn by the Pixi scene). */
 .scene-bet {
   position: absolute;
   transform: translate(-50%, -50%);
   z-index: 2;
+}
+
+/* Win-overlay particles (FreePlayScreen's `children`) are DOM-fallback only —
+   the scene renders its own chip-stack fx (ChipStackActor.pushTo's splash)
+   and confetti (PokerScene.playConfetti). The DOM win banner (`.win-banner`)
+   stays visible on BOTH paths; only the legacy particle layers are hidden
+   here. Components still mount (invisibly) on the scene path — they're
+   transient and cheap (T11 dispatch-context resolution). */
+.scene-world .confetti,
+.scene-world .win-burst,
+.scene-world .chip-fly {
+  display: none;
 }
 
 /* Mobile: the frame is a fluid 100dvh flex column that DOES stretch, so the

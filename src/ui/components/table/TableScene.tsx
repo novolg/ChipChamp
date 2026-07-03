@@ -8,7 +8,6 @@ import {
 } from 'react';
 import type { GameState, Seat as SeatState } from '../../../engine/types';
 import { Seat, StackAmount, type ActionBubble } from './Seat';
-import { Chips } from './Chips';
 import { botIdFor, type BotId } from './BotFace';
 import { Table } from './Table';
 import { blindSeats, isShowdown, winnerNames, winningCardKeys } from '../../lib/derive';
@@ -220,23 +219,12 @@ function SceneOverlay({
         );
       })}
 
-      {/* Live bet pills between each seat and the pot. */}
-      {game.phase === 'betting' &&
-        opponents.slice(0, 3).map((s, i) =>
-          s.committedThisStreet > 0 ? (
-            <div key={s.id} className="scene-bet" style={at(L.bets[POSITIONS[i]])}>
-              <Chips amount={s.committedThisStreet} tone={s.id === game.toActSeatId ? 'orange' : 'blue'} />
-            </div>
-          ) : null,
-        )}
-      {game.phase === 'betting' && hero && hero.committedThisStreet > 0 && (
-        <div className="scene-bet" style={at(L.bets.hero)}>
-          <Chips amount={hero.committedThisStreet} tone="blue" />
-        </div>
-      )}
+      {/* Bet stacks (live + street sweep) and the pot cluster are drawn by
+          the Pixi scene (ChipStackActor) — see PokerScene.fx's betStack /
+          sweep / winPush cues. */}
 
       {/* Board + hero + bot cards are drawn by the Pixi scene (CardActor); the
-          overlay keeps only plates, bubbles, bet pills, pot capsule and banner. */}
+          overlay keeps only plates, bubbles, pot capsule and banner. */}
 
       {/* Street label + pot capsule. */}
       <div className="felt-street scene-bet" key={game.street} style={at(streetPt)}>
