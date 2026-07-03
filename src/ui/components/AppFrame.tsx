@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
@@ -7,6 +7,7 @@ import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
 import { isStepComplete } from '../../tutorial/progress/progressReducer';
 import { useSound } from '../hooks/useSound';
 import { playSfx } from '../lib/sound';
+import { SettingsModal } from './SettingsModal';
 
 /* Session-scoped high-water mark of the step count we've already celebrated.
  * null until the first mount syncs it, so a page load never auto-fires the
@@ -43,6 +44,32 @@ function SfxToggle() {
             <path d="M18.5 7.5a7 7 0 0 1 0 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </>
         )}
+      </svg>
+    </button>
+  );
+}
+
+/** Gear button that opens the settings modal. Same sunken-circle idiom as
+ *  the SFX mute toggle next to it; `buttonRef` lets the modal return focus
+ *  here on close. */
+function SettingsToggle({ onOpen, buttonRef }: { onOpen: () => void; buttonRef: RefObject<HTMLButtonElement> }) {
+  return (
+    <button
+      type="button"
+      ref={buttonRef}
+      className="settings-toggle"
+      aria-label="Open settings"
+      title="Settings"
+      onClick={onOpen}
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path
+          d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.02 5.98l-1.7 1.7M7.68 16.32l-1.7 1.7M18.02 18.02l-1.7-1.7M7.68 7.68l-1.7-1.7"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
       </svg>
     </button>
   );
@@ -123,6 +150,13 @@ function ProgressChips() {
  *  field, with the logo wordmark, progress chips and LEARN / PLAY navigation. */
 export function AppFrame({ variant = 'learn', active, headerExtra, children }: AppFrameProps) {
   const go = useNavStore((s) => s.go);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const gearRef = useRef<HTMLButtonElement>(null);
+
+  const closeSettings = () => {
+    setSettingsOpen(false);
+    gearRef.current?.focus();
+  };
 
   return (
     <div className={`frame frame-${variant}`}>
@@ -134,6 +168,7 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
         <div className="frame-right">
           <ProgressChips />
           <SfxToggle />
+          <SettingsToggle onOpen={() => setSettingsOpen(true)} buttonRef={gearRef} />
           <nav className="nav-switch" role="tablist">
             {/* Sliding active surface; segs are transparent on top of it. */}
             <span className="nav-thumb" data-pos={active} aria-hidden="true" />
@@ -157,6 +192,7 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
         </div>
       </header>
       <div className="frame-body">{children}</div>
+      {settingsOpen && <SettingsModal onClose={closeSettings} />}
     </div>
   );
 }

@@ -83,6 +83,30 @@
 .sfx-toggle[data-muted='true']:hover { color: var(--c-text-2); box-shadow: var(--sh-sunken); }
 .sfx-toggle svg { display: block; }
 
+/* ---- Settings gear: same sunken round icon-button idiom as the SFX toggle ---- */
+.settings-toggle {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+  color: var(--c-text-3);
+  cursor: pointer;
+  transition: color var(--t-hover), transform var(--t-hover) var(--ease-snap),
+    box-shadow var(--t-hover);
+}
+.settings-toggle:hover {
+  color: var(--c-orange-hi);
+  transform: translateY(-1px);
+  box-shadow: var(--sh-sunken), 0 0 14px rgba(255, 165, 2, 0.25);
+}
+.settings-toggle:active { transform: translateY(0) scale(0.92); }
+.settings-toggle svg { display: block; }
+
 /* ---- Run-progress chips in the header: one chip per learning step, lit as
    they're earned. Each coin-flips on hover (the gesture the old HUD chip had);
    the newest chip light-transitions in + blooms a burst on level-up. ---- */
@@ -772,6 +796,148 @@
 .fb-head { font-weight: 800; margin: 0 0 var(--sp-2); }
 
 /* ============================================================
+   Settings modal — mounts as a direct child of `.frame`. `.frame` already
+   has `transform: scale(--fit-scale)` (see above), which per spec makes it
+   the containing block for absolutely-positioned descendants, so the
+   backdrop below needs no extra `position` on `.frame` itself.
+   ============================================================ */
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 12, 0.72);
+  padding: var(--sp-6);
+}
+.settings-modal {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-2);
+  border-radius: var(--r-panel);
+  box-shadow: var(--sh-panel);
+  padding: var(--sp-6);
+  color: var(--c-text);
+}
+.settings-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--c-border);
+}
+.settings-modal-head h2 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 20px;
+  letter-spacing: 0.5px;
+}
+.settings-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+  color: var(--c-text-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--t-hover), box-shadow var(--t-hover);
+}
+.settings-close:hover {
+  color: var(--c-orange-hi);
+  box-shadow: var(--sh-sunken), 0 0 14px rgba(255, 165, 2, 0.25);
+}
+
+.settings-section { margin-bottom: var(--sp-6); }
+.settings-section:last-child { margin-bottom: 0; }
+.settings-section-title {
+  margin: 0 0 var(--sp-3);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--c-text-faint);
+  text-transform: uppercase;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+}
+.settings-row-label {
+  flex: none;
+  width: 130px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-text-2);
+}
+.settings-row-value {
+  flex: none;
+  width: 36px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--c-text-3);
+}
+.settings-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--c-blue);
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+  cursor: pointer;
+}
+
+/* Seg row (speed / toggles / reduced-motion) — plain `.btn` pills. */
+.settings-seg-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.settings-seg { padding: 8px 14px; font-size: 12px; }
+
+.settings-select {
+  flex: none;
+  background: var(--c-surface-sunken);
+  box-shadow: var(--sh-sunken);
+  border: none;
+  border-radius: var(--r-btn-sm);
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.settings-hint {
+  margin: var(--sp-1) 0 0;
+  font-size: 11px;
+  color: var(--c-text-faint);
+}
+
+.settings-reset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.settings-reset-confirm {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-text-2);
+}
+
+/* ============================================================
    MOBILE (≤760px): the fixed 1240×880 canvas stops scaling and
    becomes a fluid, full-viewport layout. Desktop is untouched.
    ============================================================ */
@@ -796,6 +962,7 @@
   .frame-right { gap: 8px; }
   .hdr-chips { display: none; }
   .sfx-toggle { width: 32px; height: 32px; }
+  .settings-toggle { width: 32px; height: 32px; }
   .nav-switch { padding: 2px; }
   .nav-seg { width: 64px; font-size: 12px; padding: 7px 0; }
   .nav-thumb { width: 64px; }
@@ -834,4 +1001,12 @@
 
   /* Keep interactive lesson widgets within the viewport width. */
   .screen svg { max-width: 100%; height: auto; }
+
+  /* Settings modal: narrower label column + tighter padding so sliders and
+     seg-rows keep breathing room on a phone-width frame. */
+  .settings-backdrop { padding: var(--sp-3); }
+  .settings-modal { padding: var(--sp-4); }
+  .settings-row { flex-wrap: wrap; }
+  .settings-row-label { width: 100%; }
+  .settings-row-value { order: 1; }
 }
