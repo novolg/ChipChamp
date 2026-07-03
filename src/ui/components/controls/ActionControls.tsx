@@ -4,7 +4,10 @@ import { getLegalActions, getSeat } from '../../../engine/betting';
 import { playSfx, type SfxName } from '../../lib/sound';
 
 /** The human's action gets its verb cue fired synchronously on press (below),
- *  so it feels instant; useTableSfx suppresses the duplicate log echo. */
+ *  so it feels instant. On the free-play table the feel-director now drives all
+ *  table AV (including the human's own action, ~a frame later — imperceptible),
+ *  so that screen passes `silentPress` to avoid a doubled verb; the tutorial
+ *  practice screen has no director and keeps the synchronous cue. */
 const PRESS_SFX: Partial<Record<Action['type'], SfxName>> = {
   fold: 'fold', check: 'check', call: 'call', bet: 'bet', raise: 'raise', allin: 'allin',
 };
@@ -14,9 +17,11 @@ interface ActionControlsProps {
   seatId: number;
   onAction: (action: Action) => void;
   disabled?: boolean;
+  /** Suppress the synchronous on-press verb cue (a director plays it instead). */
+  silentPress?: boolean;
 }
 
-export function ActionControls({ game, seatId, onAction, disabled }: ActionControlsProps) {
+export function ActionControls({ game, seatId, onAction, disabled, silentPress }: ActionControlsProps) {
   const legal = getLegalActions(game);
   const seat = getSeat(game, seatId);
   const betOrRaise = legal.find((a) => a.type === 'bet' || a.type === 'raise');
@@ -47,7 +52,7 @@ export function ActionControls({ game, seatId, onAction, disabled }: ActionContr
   // Play the verb cue synchronously on press, then dispatch — no input lag.
   const act = (action: Action) => {
     const sfx = PRESS_SFX[action.type];
-    if (sfx) playSfx(sfx);
+    if (sfx && !silentPress) playSfx(sfx);
     onAction(action);
   };
 

@@ -37,6 +37,14 @@ export function toggleMuted(): void {
 // it's playback-path state, not sample-bank state.
 const variationCounters = new Map<string, number>();
 
+// `?sfxlog=1` dev flag: console.debug every played cue + whether it resolved to
+// a real sample or the synth fallback. Used by the click-through verification
+// to assert cues actually fire (samples can't be heard headless).
+const SFX_LOG =
+  typeof window !== 'undefined' &&
+  typeof window.location !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('sfxlog') === '1';
+
 /** Kick off sample loading on the first user gesture — same 3 event types as
  *  engine.ts's own unlock listeners, so the bank starts fetching the moment
  *  audio is unlocked. `loadSampleBank` is idempotent, so extra gestures
@@ -89,7 +97,11 @@ export function playCue(name: string, opts?: { pan?: number; semitones?: number 
   if (cue?.pool && bankStatus() === 'ready') {
     const basename = pickVariation(cue.pool, variationCounters);
     const buffer = getBuffer(basename);
-    if (buffer && playBuffer(name, cue.bus, buffer, opts)) return;
+    if (buffer && playBuffer(name, cue.bus, buffer, opts)) {
+      if (SFX_LOG) console.debug('[cue]', name, 'sample');
+      return;
+    }
   }
+  if (SFX_LOG) console.debug('[cue]', name, 'synth');
   playSynth((cue?.synth ?? name) as SynthName, opts);
 }

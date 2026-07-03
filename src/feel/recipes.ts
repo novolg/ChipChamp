@@ -55,10 +55,10 @@ export const SCENE_FX = [
   'camReset',
 ] as const;
 
-/** HAND_START's deal-ritual duration in ms (1x speed). Task 10's gameStore
- *  adds its own DEAL_RITUAL_MS — the two must match; once it lands, Task 10
- *  flips this import direction (gameStore becomes the source of truth and
- *  this file imports it back) rather than this file exporting a duplicate. */
+/** HAND_START's deal-ritual duration in ms (1x speed). This module is the
+ *  single source of truth: gameStore imports RITUAL_MS and re-exports it as
+ *  DEAL_RITUAL_MS (its first-bot-action gate), keeping the direction feel→…→ui
+ *  so the pure feel tree never depends on the UI layer. */
 export const RITUAL_MS = 1100;
 
 // Existing win-tier scaling, ported verbatim from useTableSfx / FreePlayScreen

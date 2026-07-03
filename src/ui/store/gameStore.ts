@@ -9,12 +9,20 @@ import {
 } from '../../engine/reducer';
 import { decide } from '../../bot/policy';
 import { BOT_PRESETS, type BotConfig } from '../../bot/botConstants';
+import { useSettingsStore } from './settingsStore';
+import { RITUAL_MS } from '../../feel/recipes';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 /** Delay before a bot acts, so the human can follow the action. Exported so the
  *  table's timebank arc can drain over exactly this window. */
 export const BOT_DELAY_MS = 750;
+
+/** Scene deal-ritual length at 1× (spec §2). Sourced from feel/recipes so the
+ *  gameStore's first-action gate and the HAND_START recipe's `dealRitual` param
+ *  can never drift apart; re-exported under the store's own name for callers
+ *  that shouldn't reach into src/feel. */
+export const DEAL_RITUAL_MS = RITUAL_MS;
 
 export interface GameStore {
   game: GameState | null;
@@ -61,6 +69,14 @@ export const useGameStore = create<GameStore>((set, get) => {
     const seat = game.seats.find((s) => s.id === game.toActSeatId);
     if (!seat || seat.isHuman) return;
 
+    // Speed scales every bot delay (UI-layer read; the engine stays untouched).
+    // The FIRST bot action of a hand additionally waits out the scene's deal
+    // ritual so the bot doesn't act over the cards still flying in — "first
+    // action" = no non-blind action has been logged yet this hand.
+    const { speed } = useSettingsStore.getState().settings;
+    const firstActionOfHand = game.log.every((e) => !e.action || e.action.type === 'postBlind');
+    const delay = BOT_DELAY_MS / speed + (firstActionOfHand ? DEAL_RITUAL_MS / speed : 0);
+
     const actingSeatId = game.toActSeatId;
     set({ botThinking: true });
     botTimer = setTimeout(() => {
@@ -75,7 +91,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       const next = applyAction(current, action);
       set({ game: next, botThinking: false });
       scheduleBots();
-    }, BOT_DELAY_MS);
+    }, delay);
   }
 
   return {

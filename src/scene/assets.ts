@@ -104,7 +104,7 @@ function ensureOswaldLoaded(): Promise<void> {
       try {
         const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
         if (!fonts) return;
-        await fonts.load('700 32px Oswald');
+        await fonts.load('600 32px Oswald');
         await fonts.ready;
       } catch {
         // Font Loading API missing or rejected — fall back silently.
@@ -129,13 +129,15 @@ function buildCardFace(renderer: Renderer, card: Card, fourColor: boolean): Text
     .roundRect(inset, inset, w - inset * 2, h - inset * 2, Math.max(0, CARD_RADIUS - inset))
     .stroke({ width: 2, color: CARD_INK, alpha: 0.14 });
 
+  // Weight 600 matches the DOM card's `.pcard-rank { font-weight: 600 }`
+  // (Task 10 screenshot decision: 700 read a touch heavier than the DOM look).
   const rank = new Text({
     text: rankLabel(card.rank),
-    style: { fontFamily: 'Oswald', fontWeight: '700', fontSize: Math.round(w * 0.46), fill: color },
+    style: { fontFamily: 'Oswald', fontWeight: '600', fontSize: Math.round(w * 0.46), fill: color },
   });
   const suit = new Text({
     text: SUIT_SYMBOL[card.suit],
-    style: { fontFamily: 'Oswald', fontWeight: '700', fontSize: Math.round(w * 0.29), fill: color },
+    style: { fontFamily: 'Oswald', fontWeight: '600', fontSize: Math.round(w * 0.29), fill: color },
   });
   // Centered vertical stack (rank above suit), mirroring the DOM's
   // `flex-direction: column; align-items: center; justify-content: center`.
@@ -265,7 +267,9 @@ export async function createAssets(renderer: Renderer): Promise<SceneAssets> {
   function chip(denom: ChipDenom): Texture {
     let texture = chipCache.get(denom);
     if (!texture) {
-      const base = chipBaseByDenom.get(denom) ?? Texture.WHITE;
+      // Every ChipDenom is loaded into chipBaseByDenom above (falling back to
+      // Texture.WHITE on a failed PNG), so .get is always defined here.
+      const base = chipBaseByDenom.get(denom)!;
       texture = buildChip(renderer, denom, base);
       chipCache.set(denom, texture);
     }

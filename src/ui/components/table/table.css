@@ -372,8 +372,10 @@
   opacity: 1;
 }
 .botseat-acting .acting-ring-progress {
-  animation: tb-drain var(--tb-ms, 750ms) linear forwards,
-    tb-redden var(--tb-ms, 750ms) linear forwards;
+  /* --botdelay-ms (speed-scaled, set by TableScene) wins when present; the
+     inline --tb-ms on the ring is the untouched-Seat fallback. */
+  animation: tb-drain var(--botdelay-ms, var(--tb-ms, 750ms)) linear forwards,
+    tb-redden var(--botdelay-ms, var(--tb-ms, 750ms)) linear forwards;
 }
 @keyframes tb-drain {
   to { stroke-dashoffset: 100; } /* empty */

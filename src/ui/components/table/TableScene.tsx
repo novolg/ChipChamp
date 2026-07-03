@@ -6,9 +6,8 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import type { Card, GameState, Seat as SeatState } from '../../../engine/types';
+import type { GameState, Seat as SeatState } from '../../../engine/types';
 import { Seat, StackAmount, type ActionBubble } from './Seat';
-import { PlayingCard } from './Card';
 import { Chips } from './Chips';
 import { botIdFor, type BotId } from './BotFace';
 import { Table } from './Table';
@@ -17,15 +16,19 @@ import { deriveEmotion, chipLeaderProud, handTell, type Emotion } from '../../li
 import { useGazeDirector, gazeVector } from '../../hooks/useGazeDirector';
 import { useCountUp } from '../../hooks/useCountUp';
 import { useProgressStore } from '../../store/progressStore';
-import { useSettingsStore } from '../../store/settingsStore';
+import { useSettingsStore, prefersReducedMotion } from '../../store/settingsStore';
 import { useFitScale } from '../../hooks/useFitScale';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { BOT_DELAY_MS } from '../../store/gameStore';
 import { LEARNING_PATH } from '../../../tutorial/content/learningPath';
 import { QUIZZES_BY_ID } from '../../../tutorial/content/quizzes';
 import { isStepComplete } from '../../../tutorial/progress/progressReducer';
 import { tableLayout, type LayoutMode, type Pt, type TableLayout } from '../../../scene/layout';
 import { resolveTier, type QualityTier } from '../../../scene/quality';
 import { PokerScene } from '../../../scene/PokerScene';
+import { createDirector, type Channels } from '../../../feel/director';
+import { deriveFeelEvents } from '../../../feel/events';
+import { playCue } from '../../../audio';
 import './tablescene.css';
 
 /* ============================================================================
@@ -36,8 +39,22 @@ import './tablescene.css';
  * duplication both go away.
  * ==========================================================================*/
 
-const key = (c: Card) => `${c.rank}${c.suit}`;
 const POSITIONS = ['left', 'center', 'right'] as const;
+
+/* --- director channel plumbing ------------------------------------------- */
+
+/** Stereo pan per table slot (audio channel). Cues without a slot param pan
+ *  nowhere (centered) — panForSlot returns undefined so no panner is inserted. */
+const SLOT_PAN: Record<string, number> = { left: -0.5, center: 0, right: 0.5, hero: 0.15 };
+const panForSlot = (slot: unknown): number | undefined =>
+  typeof slot === 'string' ? SLOT_PAN[slot] : undefined;
+
+/** Haptic patterns (haptic channel), gated on the `haptics` setting. */
+const HAPTIC_PATTERNS: Record<string, number[]> = {
+  tap: [10],
+  heavy: [20, 30, 20],
+  success: [10, 40, 10],
+};
 
 const ACTION_LABEL: Record<string, string> = {
   fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE', allin: 'ALL-IN',
@@ -218,24 +235,8 @@ function SceneOverlay({
         </div>
       )}
 
-      {/* STOPGAP until Task 10 draws cards in Pixi — delete with CardActor.
-          Community cards via the existing DOM PlayingCard (same recipe as
-          Table.tsx's <Board>), cards only — no placeholder slots, so the felt
-          stays clean until the flop. Row centered at layout.board, spaced by
-          layout.boardGap. */}
-      {game.board.length > 0 && (
-        <div style={{ ...at(L.board), transform: 'translate(-50%, -50%)', display: 'flex', gap: L.boardGap, zIndex: 2 }}>
-          {game.board.map((c, i) => (
-            <PlayingCard
-              key={i}
-              card={c}
-              size="board"
-              highlight={highlight.has(key(c))}
-              dealDelay={i <= 2 ? i * 0.09 : 0}
-            />
-          ))}
-        </div>
-      )}
+      {/* Board + hero + bot cards are drawn by the Pixi scene (CardActor); the
+          overlay keeps only plates, bubbles, bet pills, pot capsule and banner. */}
 
       {/* Street label + pot capsule. */}
       <div className="felt-street scene-bet" key={game.street} style={at(streetPt)}>
@@ -255,18 +256,7 @@ function SceneOverlay({
           className="hero"
           style={{ position: 'absolute', left: L.seats.hero.x, top: L.seats.hero.y, bottom: 'auto', transform: 'translate(-50%, -50%)' }}
         >
-          <div className="hero-cards" key={game.handNumber}>
-            {hero.holeCards.length === 2 ? (
-              hero.holeCards.map((c, i) => (
-                <PlayingCard key={i} card={c} size="hero" highlight={highlight.has(key(c))} />
-              ))
-            ) : (
-              <>
-                <div className="pcard pcard-hero pcard-empty" />
-                <div className="pcard pcard-hero pcard-empty" />
-              </>
-            )}
-          </div>
+          {/* Hero hole cards are drawn by the Pixi scene (CardActor). */}
           <div className={`hero-plate${heroActing ? ' hero-plate-acting' : ''}`}>
             <span className="seat-level seat-level-hero" key={done}>{done + 1}</span>
             <span className="hero-you">YOU</span>
@@ -295,12 +285,17 @@ function SceneOverlay({
  * to DOM.
  */
 export default function TableScene({ game, thinkingSeatId, children }: TableSceneProps) {
-  const settingRenderer = useSettingsStore((s) => s.settings.renderer);
+  const settings = useSettingsStore((s) => s.settings);
+  const settingRenderer = settings.renderer;
+  const reducedMotion = prefersReducedMotion(settings);
   const isMobile = useIsMobile();
   const fitScale = useFitScale();
 
   const mode: LayoutMode = isMobile ? 'portrait' : 'landscape';
   const L = tableLayout(mode);
+  // Timebank-arc drain duration, scaled by speed (threaded to the Seat
+  // acting-ring via the --botdelay-ms custom property on both render paths).
+  const botDelayStyle = { ['--botdelay-ms']: `${BOT_DELAY_MS / settings.speed}ms` } as CSSProperties;
 
   // Tier resolved once (the probe creates a throwaway canvas — never per render).
   const [tier, setTier] = useState<QualityTier>(() => resolveTier(settingRenderer));
@@ -326,6 +321,48 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
   modeRef.current = mode;
   fitScaleRef.current = fitScale;
   gameRef.current = game;
+
+  // Live settings/tier for the director's getters + channels (created once, so
+  // it must read the latest through refs rather than closed-over values).
+  const tierRef = useRef(tier);
+  const speedRef = useRef(settings.speed);
+  const reducedRef = useRef(reducedMotion);
+  const hapticsRef = useRef(settings.haptics);
+  tierRef.current = tier;
+  speedRef.current = settings.speed;
+  reducedRef.current = reducedMotion;
+  hapticsRef.current = settings.haptics;
+
+  // The feel-director drives ALL table AV (audio/haptic on every path; scene fx
+  // only when a Pixi scene is mounted). Created above the tier branch so the
+  // DOM fallback keeps its sounds now that useTableSfx is gone.
+  const directorRef = useRef<ReturnType<typeof createDirector> | null>(null);
+  if (!directorRef.current) {
+    const channels: Channels = {
+      scene: (cue, params, i) => {
+        // DOM tier has no Pixi scene → scene channel is a no-op logger.
+        if (tierRef.current === 'dom') return;
+        sceneRef.current?.fx(cue, params, i.value);
+      },
+      audio: (cue, params) => {
+        playCue(cue, { pan: panForSlot(params.slot), semitones: params.semitones as number | undefined });
+      },
+      dom: () => {
+        // Phase 1: the only DOM cue (turnSpotlight → .hero-plate-acting) is
+        // already state-driven, so this channel is an intentional no-op.
+      },
+      haptic: (cue) => {
+        if (!hapticsRef.current) return;
+        navigator.vibrate?.(HAPTIC_PATTERNS[cue] ?? []);
+      },
+    };
+    directorRef.current = createDirector(channels, {
+      speed: () => speedRef.current,
+      reducedMotion: () => reducedRef.current,
+      tier: () => tierRef.current,
+    });
+  }
+  const prevGameRef = useRef<GameState | null>(null);
 
   // Uniform scale that fits the world (layout.size) inside whatever box the
   // flex column gives the stage. Recomputed on resize / mode change.
@@ -393,6 +430,8 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
           sceneRef.current = scene;
           currentCanvas.addEventListener('webglcontextlost', onContextLost);
           // Apply the latest frame state (values may have changed during await).
+          scene.setMotion(speedRef.current, reducedRef.current);
+          scene.setFourColor(useSettingsStore.getState().settings.fourColorDeck);
           scene.resize(fitScaleRef.current);
           scene.setMode(modeRef.current);
           scene.sync(gameRef.current);
@@ -411,23 +450,41 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
     };
   }, [tier]);
 
-  // Push frame changes to the live scene.
+  // Every game change: derive feel events off the previous snapshot, let the
+  // director dispatch them across channels, then settle the scene to truth.
+  // Runs on ALL tiers so the DOM fallback still gets audio/haptics.
   useEffect(() => {
+    if (!game) return;
+    const events = deriveFeelEvents(prevGameRef.current, game);
+    prevGameRef.current = game;
+    directorRef.current?.dispatch(events, game);
     sceneRef.current?.sync(game);
   }, [game]);
+
+  // Push frame + settings changes to the live scene.
   useEffect(() => {
     sceneRef.current?.resize(fitScale);
   }, [fitScale]);
   useEffect(() => {
     sceneRef.current?.setMode(mode);
   }, [mode]);
+  useEffect(() => {
+    sceneRef.current?.setMotion(settings.speed, reducedMotion);
+  }, [settings.speed, reducedMotion]);
+  useEffect(() => {
+    sceneRef.current?.setFourColor(settings.fourColorDeck);
+  }, [settings.fourColorDeck]);
 
-  // DOM fallback: render the existing table unchanged and stop.
+  // DOM fallback: render the existing table unchanged. A display:contents
+  // wrapper carries --botdelay-ms into the (untouched) Seat acting-ring without
+  // adding a layout box.
   if (tier === 'dom') {
     return (
-      <Table game={game} thinkingSeatId={thinkingSeatId}>
-        {children}
-      </Table>
+      <div style={{ display: 'contents', ...botDelayStyle }}>
+        <Table game={game} thinkingSeatId={thinkingSeatId}>
+          {children}
+        </Table>
+      </div>
     );
   }
 
@@ -435,7 +492,7 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
     <div className="scene-stage" ref={stageRef}>
       <div
         className="scene-world"
-        style={{ width: L.size.w, height: L.size.h, transform: `translate(-50%, -50%) scale(${scale})` }}
+        style={{ width: L.size.w, height: L.size.h, transform: `translate(-50%, -50%) scale(${scale})`, ...botDelayStyle }}
       >
         <div className="scene-canvas" ref={hostRef} aria-hidden="true" />
         <SceneOverlay game={game} thinkingSeatId={thinkingSeatId} layout={L} mode={mode}>

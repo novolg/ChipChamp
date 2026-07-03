@@ -7,7 +7,7 @@ import { CoachingRail } from '../components/coaching/CoachingRail';
 import { Confetti } from '../components/Confetti';
 import { useCountUp } from '../hooks/useCountUp';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useTableSfx, payoutTier } from '../hooks/useTableSfx';
+import { payoutTier } from '../../feel/intensity';
 import { canDealNextHand, heroIsBusted } from '../lib/derive';
 import { playSfx } from '../lib/sound';
 import type { GameState } from '../../engine/types';
@@ -79,9 +79,8 @@ export function FreePlayScreen() {
 
   const isMobile = useIsMobile();
 
-  // Synthesised table SFX, driven off game-state changes (deals, actions,
-  // streets, payout, your-turn). Observational — no effect on gameplay.
-  useTableSfx(game);
+  // Table AV (deals, actions, streets, payout, your-turn) is now driven by the
+  // feel-director inside TableScene — no separate SFX hook here.
 
   // Start a game once on mount (guard against StrictMode double-invoke).
   useEffect(() => {
@@ -106,14 +105,8 @@ export function FreePlayScreen() {
     }
   }, [game, record]);
 
-  // One-shot "you're out" sting when the session ends with the hero busted.
-  const bustedRef = useRef(false);
-  useEffect(() => {
-    if (!game) return;
-    const out = game.phase === 'handComplete' && heroIsBusted(game);
-    if (out && !bustedRef.current) { bustedRef.current = true; playSfx('lose'); }
-    if (!out) bustedRef.current = false;
-  }, [game]);
+  // The hero-bust "you're out" sting is now emitted by the feel-director's
+  // HERO_BUST recipe (see TableScene), so no separate one-shot is needed here.
 
   // Derived before the early return so the hook order stays stable; the
   // banner amount rolls up like a slot payout instead of snapping.
@@ -197,7 +190,7 @@ export function FreePlayScreen() {
 
           <div className="play-controls">
             {heroToAct && hero && (
-              <ActionControls game={game} seatId={hero.id} onAction={playerAction} disabled={botThinking} />
+              <ActionControls game={game} seatId={hero.id} onAction={playerAction} disabled={botThinking} silentPress />
             )}
             {!heroToAct && !handOver && (
               <p className="play-wait">{botThinking ? 'Opponent is thinking…' : 'Waiting…'}</p>

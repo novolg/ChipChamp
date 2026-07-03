@@ -47,6 +47,14 @@
   z-index: 2;
 }
 
+/* Bot hole cards are drawn by the Pixi scene (CardActor) on this path, so hide
+   the DOM Seat's card backs/faces WITHOUT touching Seat.tsx (the sacrosanct
+   DOM-fallback component). visibility:hidden — not display:none — so the
+   avatar/plate keep their original vertical position. */
+.scene-seat .botseat-cards {
+  visibility: hidden;
+}
+
 /* Live bet pill anchored on a world point. */
 .scene-bet {
   position: absolute;
