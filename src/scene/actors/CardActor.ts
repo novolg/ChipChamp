@@ -91,6 +91,8 @@ export class CardActor {
   /** Hard-set to a resting state at `pt` (used by settle-to-truth), optionally
    *  rotated (fanned bot backs). Leaves highlight/dim to explicit calls. */
   place(pt: Pt, faceUp: boolean, rot = 0): void {
+    this.muckTl?.kill();
+    this.muckTl = null;
     this.mucking = false;
     this.view.visible = true;
     this.view.position.set(pt.x, pt.y);
@@ -103,6 +105,8 @@ export class CardActor {
   }
 
   hide(): void {
+    this.muckTl?.kill();
+    this.muckTl = null;
     this.mucking = false;
     this.view.visible = false;
     this.highlight(false);
@@ -226,6 +230,7 @@ export class CardActor {
       this.mucking = false;
       return tl;
     }
+    this.muckTl?.kill();
     this.muckTl = tl;
     tl.to(
       this.view,
