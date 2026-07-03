@@ -5,6 +5,7 @@ import {
   FillGradient,
   Graphics,
   type Texture,
+  type Ticker,
 } from 'pixi.js';
 import { gsap } from 'gsap';
 import { tableLayout, slotOfSeat, BOT_SLOTS, type LayoutMode, type SeatSlot, type TableLayout, type Pt } from './layout';
@@ -25,6 +26,15 @@ import {
   botCardPositions,
   type SceneCards,
 } from './sync';
+
+/** `?fps=1` dev flag: logs the ticker's rolling FPS about once a second.
+ *  Mirrors the `?sfxlog=1` idiom in audio/index.ts — a URLSearchParams check
+ *  done once at module scope, so the cost when absent is a single boolean
+ *  read (the ticker callback below is only registered when this is true). */
+const FPS_LOG =
+  typeof window !== 'undefined' &&
+  typeof window.location !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('fps') === '1';
 
 /** All four bet-anchor slots (the three bot slots plus hero). */
 const ALL_SLOTS: readonly SeatSlot[] = [...BOT_SLOTS, 'hero'];
@@ -166,6 +176,9 @@ export class PokerScene {
   /** Last fit-scale seen by resize(); setMode reuses it to recompute resolution. */
   private lastFitScale = 1;
 
+  /** `?fps=1` only: accumulated ms since the last FPS log line. */
+  private fpsElapsedMs = 0;
+
   private constructor(
     app: Application,
     mode: LayoutMode,
@@ -192,6 +205,10 @@ export class PokerScene {
     // read `this.reduced` live through `motion` — it doesn't exist until now.
     this.felt = new FeltActor(textures, motion, this.app.ticker, tier === 'full');
     this.layers.table.addChild(this.felt.view);
+    // `?fps=1` only: registered once here (never re-registered by setMode),
+    // removed in destroy() — same one-shot-registration discipline as
+    // FeltActor's own ambient ticker callback.
+    if (FPS_LOG) this.app.ticker.add(this.onFpsTick);
 
     // Env layer: bokeh blobs behind the felt, wrapped in the parallax container.
     this.layers.env.addChild(this.envParallax);
@@ -331,6 +348,16 @@ export class PokerScene {
     const nx = clamp((e.gamma ?? 0) / PARALLAX_TILT_RANGE_DEG, -1, 1);
     const ny = clamp((e.beta ?? 0) / PARALLAX_TILT_RANGE_DEG, -1, 1);
     this.envParallax.position.set(nx * PARALLAX_TILT_MAX, ny * PARALLAX_TILT_MAX);
+  };
+
+  /** `?fps=1` only: logs Pixi's own smoothed `ticker.FPS` estimate roughly
+   *  once a second. Only ever registered on the ticker when the flag is set
+   *  (see constructor) — no allocation or work happens per frame otherwise. */
+  private onFpsTick = (ticker: Ticker): void => {
+    this.fpsElapsedMs += ticker.deltaMS;
+    if (this.fpsElapsedMs < 1000) return;
+    this.fpsElapsedMs = 0;
+    console.debug('[fps]', Math.round(this.app.ticker.FPS));
   };
 
   /** Switch the card-face color scheme; re-bakes faces and resettles. */
@@ -825,6 +852,7 @@ export class PokerScene {
     // Safe even when never attached (create() only adds it when the API
     // exists) — removeEventListener on an unregistered listener is a no-op.
     globalThis.removeEventListener('deviceorientation', this.onDeviceOrientation);
+    if (FPS_LOG) this.app.ticker.remove(this.onFpsTick);
     this.anim?.kill();
     this.anim = null;
     for (const tl of this.loose) tl.kill();
