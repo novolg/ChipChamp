@@ -168,7 +168,11 @@ function SceneOverlay({
   const blindOf = (id: number): 'SB' | 'BB' | undefined => (id === sb ? 'SB' : id === bb ? 'BB' : undefined);
   const heroBubble = hero ? bubbles.get(hero.id) : undefined;
   const heroActing = hero != null && hero.id === game.toActSeatId && game.phase === 'betting';
-  const streetPt: Pt = { x: L.pot.x, y: L.pot.y - (mode === 'portrait' ? 24 : 32) };
+  // Phase/street label sits just BELOW the community cards. The top-center is
+  // over-constrained — the center bet stack (bets.center), the pot capsule
+  // (potLabel), and the physical pot chips (pot) leave no clear slot for it up
+  // there — and the clear band under the board reads it as the board's phase.
+  const streetPt: Pt = { x: L.board.x, y: L.board.y + L.cardH / 2 + (mode === 'portrait' ? 22 : 26) };
 
   return (
     <>

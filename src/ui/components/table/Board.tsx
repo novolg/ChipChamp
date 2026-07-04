@@ -19,7 +19,6 @@ export function Board({ board, pot, street, highlightKeys, bumpKey = 0 }: BoardP
   const shownPot = useCountUp(pot);
   return (
     <>
-      <img src="/assets/logo-wordmark.png" alt="" className="felt-watermark" aria-hidden="true" />
       <img src="/assets/card-back.png" alt="" className="felt-deck" aria-hidden="true" />
       <div className="felt-stack">
         <div className="felt-street" key={street}>{street.toUpperCase()}</div>

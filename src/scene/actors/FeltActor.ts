@@ -3,7 +3,6 @@ import {
   FillGradient,
   Graphics,
   Sprite,
-  Text,
   TilingSprite,
   type Texture,
   type Ticker,
@@ -28,19 +27,17 @@ export interface SceneTextures {
 }
 
 /** Rail-ring / decoration sizing per layout mode (mirrors table.css desktop vs
- *  the ≤760px portrait block, where the deck/watermark are hidden). The
- *  leather rail band itself is a fixed width across both modes (RAIL_W). */
+ *  the ≤760px portrait block, where the deck is hidden). The leather rail band
+ *  itself is a fixed width across both modes (RAIL_W). */
 interface FeltStyle {
   showDeck: boolean;
-  showWatermark: boolean;
   deckW: number;
-  watermarkSize: number;
 }
 
 function feltStyle(mode: LayoutMode): FeltStyle {
   return mode === 'portrait'
-    ? { showDeck: false, showWatermark: false, deckW: 34, watermarkSize: 30 }
-    : { showDeck: true, showWatermark: true, deckW: 46, watermarkSize: 46 };
+    ? { showDeck: false, deckW: 34 }
+    : { showDeck: true, deckW: 46 };
 }
 
 /* ---------------------------------------------------------------------------
@@ -88,8 +85,8 @@ function drawDashedEllipse(
 /**
  * FeltActor — draws today's felt look purely from `layout.ts` geometry:
  * navy radial felt ellipse, leather rail with stitch + brass trim + a
- * traveling glint, racetrack line, vignette, tiled noise/weave overlay, and a
- * faint brand watermark. Rebuilt wholesale on a layout change (cheap; static
+ * traveling glint, racetrack line, vignette, and a tiled noise/weave overlay.
+ * Rebuilt wholesale on a layout change (cheap; static
  * geometry) except the rail glint, which is driven by one ticker callback
  * registered ONCE in the constructor so it survives `layout()` rebuilds
  * without duplicating. Exposes the drawn deck stack so the deal ritual can
@@ -260,25 +257,6 @@ class FeltActor {
         .ellipse(cx, cy, rx - rx * 0.11, ry - ry * 0.18)
         .stroke({ width: 1.5, color: 0x6ea0ff, alpha: 0.16 }),
     );
-
-    // Faint brand watermark near the felt's lower third.
-    if (style.showWatermark) {
-      const mark = new Text({
-        text: 'CHIPCHAMP',
-        style: {
-          fontFamily: 'Kanit, system-ui, sans-serif',
-          fontSize: style.watermarkSize,
-          fontWeight: '900',
-          fontStyle: 'italic',
-          letterSpacing: 4,
-          fill: 0xbcd2ff,
-        },
-      });
-      mark.anchor.set(0.5);
-      mark.position.set(cx, cy + ry * 0.6);
-      mark.alpha = 0.06;
-      this.view.addChild(mark);
-    }
 
     // Deck stack: a rotated card-back at layout.deck, with a couple of offset
     // navy plates behind it to read as a physical stack.
