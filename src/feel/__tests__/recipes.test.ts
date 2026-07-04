@@ -190,8 +190,6 @@ describe('RECIPES validator', () => {
         'turnSpotlight',
         'dealRitual',
         'camPunch',
-        'camZoomSeat',
-        'camReset',
       ].sort(),
     );
   });

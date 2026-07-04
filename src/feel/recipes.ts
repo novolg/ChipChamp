@@ -51,8 +51,6 @@ export const SCENE_FX = [
   'turnSpotlight',
   'dealRitual',
   'camPunch',
-  'camZoomSeat',
-  'camReset',
 ] as const;
 
 /** HAND_START's deal-ritual duration in ms (1x speed). This module is the
