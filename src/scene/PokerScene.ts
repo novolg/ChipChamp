@@ -12,9 +12,8 @@ import { tableLayout, slotOfSeat, BOT_SLOTS, type LayoutMode, type SeatSlot, typ
 import type { QualityTier } from './quality';
 import type { GameState } from '../engine/types';
 import { createAssets, type SceneAssets } from './assets';
-import { CameraRig } from './camera';
 import { FeltActor, type SceneTextures } from './actors/FeltActor';
-import { LampActor } from './actors/LampActor';
+import { LampActor, LAMP_BLOOM_MS } from './actors/LampActor';
 import { CardActor, type CardMotion } from './actors/CardActor';
 import { ChipStackActor } from './actors/ChipStackActor';
 import {
@@ -49,23 +48,6 @@ function chipDiscSize(mode: LayoutMode): number {
 /** Brand-palette confetti colors (mirrors ui/components/Confetti.tsx's
  *  COLORS array so the scene's burst reads the same as the DOM fallback). */
 const CONFETTI_COLORS = [0xffa502, 0x006efd, 0xff4757, 0x2ed573, 0xffd166];
-
-/* Camera beats (spec §3.5 — subtle). camPunch replaces the DOM path's CSS
- * `.table-felt-shove` punch on the scene path (the DOM fallback keeps its CSS
- * rules untouched). */
-const CAM_PUNCH_ZOOM = 0.02;
-const CAM_PUNCH_MS = 90;
-const CAM_SHAKE_AMP_PER_INTENSITY = 4; // px at intensity 1
-const CAM_SHAKE_MS = 220;
-const CAM_HITSTOP_MS = 80;
-/** WIN big/monster: hold the winner-seat framing this long, then return. */
-const WIN_CAM_HOLD_MS = 700;
-/** Gate the win framing to big/monster payouts. The WIN recipe's intensity
- *  VALUE encodes its tier exactly (intensity.ts valueMap: big → 0.75,
- *  monster → 1), so ≥ 0.75 reuses the recipe's own tier signal without
- *  re-deriving tier logic in the scene (same value-band idiom as recipes.ts'
- *  chipStackCue). */
-const WIN_CAM_MIN_INTENSITY = 0.75;
 
 /** Narrow an `unknown` scene-cue param to a SeatSlot, or null if it isn't
  *  one — a cheap runtime guard at the director→scene channel boundary
@@ -131,14 +113,10 @@ export class PokerScene {
   private readonly lamp: LampActor;
   private readonly assets: SceneAssets;
   private readonly layers: { env: Container; table: Container; play: Container; fx: Container };
-  /** Camera world: parents table/play/fx so the rig can move them as one.
-   *  The env layer stays OUTSIDE (directly on the stage, below) — envParallax
-   *  is its only transform writer, and CameraRig is the only writer here. */
+  /** Static parent for table/play/fx (env stays OUTSIDE, directly on the
+   *  stage, below). Never transformed — the table rig this used to belong to
+   *  is retired; the lamp carries all "follow the action" motion instead. */
   private readonly world = new Container({ label: 'world' });
-  private readonly camera: CameraRig;
-  /** Pending return-to-default after a big/monster win framing (see fx
-   *  `winPush`). Instance-bound, cleared in destroy() — StrictMode-safe. */
-  private winCamTimer: ReturnType<typeof setTimeout> | null = null;
   /** Env-layer parallax wrapper (behind the felt): shifts the two bokeh blobs
    *  from pointer position (desktop) or device tilt (mobile). Position is
    *  reset to (0,0) the instant reduced-motion turns on — see `setMotion`. */
@@ -202,7 +180,6 @@ export class PokerScene {
 
     const motion: CardMotion = { speed: () => this.speed, reducedMotion: () => this.reduced };
     this.motion = motion;
-    this.camera = new CameraRig(this.world, tableLayout(mode), motion, this.app.ticker);
     // FeltActor is built here (not in `create()`) so its ambient effects can
     // read `this.reduced` live through `motion` — it doesn't exist until now.
     this.felt = new FeltActor(textures, motion, this.app.ticker);
@@ -315,10 +292,10 @@ export class PokerScene {
     this.reduced = reducedMotion;
     if (reducedMotion) {
       this.envParallax.position.set(0, 0);
-      // Same discipline for the camera: snap to its current target and drop
-      // any shake/punch/hit-stop immediately (not on a next frame a stopped
+      // Same discipline for the lamp: snap to its current target and drop
+      // any pulse/bloom transient immediately (not on a next frame a stopped
       // ticker might never deliver).
-      this.camera.snap();
+      this.lamp.snap();
     }
   }
 
@@ -377,33 +354,31 @@ export class PokerScene {
   /** Settle-to-truth. Captures the snapshot always; only hard-sets cards +
    *  chips when the deal timeline is idle (an active animation is already
    *  driving the cards toward this same truth; chip actors additionally
-   *  self-guard via their own in-flight tween, see `settleChips`). The camera
+   *  self-guard via their own in-flight tween, see `settleChips`). The lamp
    *  retargets on EVERY sync (never gated behind the deal timeline —
-   *  a framing is a target, not a keyframe). `thinkingSeatId` is the bot
+   *  a focus is a target, not a keyframe). `thinkingSeatId` is the bot
    *  currently "thinking" (threaded from TableScene's overlay bubble state). */
   sync(game: GameState, thinkingSeatId?: number | null): void {
     this.game = game;
-    this.updateCamera(game, thinkingSeatId);
+    this.updateLight(game, thinkingSeatId);
     if (this.anim && this.anim.isActive()) return;
     this.settle(game);
   }
 
-  /** Camera policy (spec §3.5, subtle): a bot thinking → drift toward that
-   *  seat; action lands / hero's turn / no thinker → default. The
-   *  `handComplete` phase is owned by the WIN framing (fx `winPush` holds the
-   *  winner seat for WIN_CAM_HOLD_MS) — leave the target alone there so a
-   *  re-sync can't cancel it mid-hold. */
-  private updateCamera(game: GameState, thinkingSeatId?: number | null): void {
+  /** Light policy (replaces the retired table-follow rig): a bot thinking →
+   *  point the lamp at that seat; hero's turn → point at the hero; otherwise
+   *  ease to rest. During `handComplete` the win bloom owns the light — leave
+   *  it. */
+  private updateLight(game: GameState, thinkingSeatId?: number | null): void {
     if (game.phase === 'handComplete') return;
-    this.clearWinCamTimer(); // a live hand drives the camera again — stale return-to-default would fight it
+    const L = tableLayout(this.mode);
+    const hero = game.seats.find((s) => s.isHuman);
+    // Same "hero's turn" predicate the DOM overlay uses (TableScene.tsx:170).
+    const heroActing = hero != null && game.toActSeatId === hero.id && game.phase === 'betting';
     const slot = thinkingSeatId != null ? slotOfSeat(game, thinkingSeatId) : null;
-    this.camera.goTo(slot && slot !== 'hero' ? `seat:${slot}` : 'default');
-  }
-
-  private clearWinCamTimer(): void {
-    if (this.winCamTimer === null) return;
-    clearTimeout(this.winCamTimer);
-    this.winCamTimer = null;
+    if (slot && slot !== 'hero') this.lamp.focus(L.seats[slot]);
+    else if (heroActing) this.lamp.focus(L.seats.hero);
+    else this.lamp.focus(null);
   }
 
   private settle(game: GameState): void {
@@ -456,7 +431,7 @@ export class PokerScene {
         this.playRimFlash();
         break;
       case 'turnSpotlight':
-        this.playTurnSpotlight();
+        this.lamp.pulse(0.4);
         break;
       case 'betStack':
         this.playBetStack(params.slot);
@@ -466,27 +441,15 @@ export class PokerScene {
         break;
       case 'winPush':
         this.playWinPush(params.winnerSlot);
-        this.playWinFraming(params.winnerSlot, intensity);
+        this.playWinBloom(params.winnerSlot);
         break;
       case 'confetti':
         this.playConfetti(Number(params.count) || 0);
         break;
-      // Camera beats. camPunch = the all-in punctuation: zoom pop + decaying
-      // shake scaled by the recipe's intensity + an 80ms hit-stop.
+      // All-in punctuation: a quick lamp brightness spike scaled by intensity
+      // (replaces the old rig's zoom/shake/hit-stop punch).
       case 'camPunch':
-        this.camera.punch(CAM_PUNCH_ZOOM, CAM_PUNCH_MS);
-        this.camera.shake(CAM_SHAKE_AMP_PER_INTENSITY * intensity, CAM_SHAKE_MS);
-        this.camera.hitStop(CAM_HITSTOP_MS);
-        break;
-      // Reserved for recipes (none emit it yet — wired per the plan).
-      case 'camZoomSeat': {
-        const slot = seatSlotOf(params.slot);
-        if (slot) this.camera.goTo(`seat:${slot}`);
-        break;
-      }
-      case 'camReset':
-        this.clearWinCamTimer();
-        this.camera.goTo('default');
+        this.lamp.pulse(intensity);
         break;
       default:
         if (!this.warned.has(cue)) {
@@ -604,21 +567,6 @@ export class PokerScene {
     this.trackLoose(tl);
   }
 
-  /** A soft additive glow at the hero seat when the player's turn begins. */
-  private playTurnSpotlight(): void {
-    if (this.reduced) return;
-    const p = tableLayout(this.mode).seats.hero;
-    const g = new Graphics().circle(p.x, p.y, 120).fill({ color: 0x8cbeff, alpha: 1 });
-    g.alpha = 0;
-    g.blendMode = 'add';
-    this.layers.fx.addChild(g);
-    const tl = gsap
-      .timeline({ onComplete: () => g.destroy() })
-      .to(g, { alpha: 0.18, duration: 0.15 / this.speed, ease: 'power1.out' })
-      .to(g, { alpha: 0, duration: 0.5 / this.speed, ease: 'power2.out' });
-    this.trackLoose(tl);
-  }
-
   /** Track a chip actor with a currently in-flight grow/sweep/push tween so
    *  `skip()` can fast-forward it. Self-pruning: entries whose tween has
    *  already completed are dropped on the next call rather than needing an
@@ -698,19 +646,13 @@ export class PokerScene {
     this.trackChipFx(actor);
   }
 
-  /** WIN big/monster: frame the winner's seat for WIN_CAM_HOLD_MS, then drift
-   *  back to default. fx-driven off the same winPush cue (its params already
-   *  carry `winnerSlot`; the intensity value carries the tier — see
-   *  WIN_CAM_MIN_INTENSITY). Small/medium wins leave the camera alone. */
-  private playWinFraming(slotVal: unknown, intensity: number): void {
+  /** WIN: bloom the lamp over the winner's cards for LAMP_BLOOM_MS, then ease
+   *  back to rest. Fires on every win (no tier gate — the old rig's
+   *  big/monster gate is dropped); brightness rides the lamp's own boost. */
+  private playWinBloom(slotVal: unknown): void {
     const slot = seatSlotOf(slotVal);
-    if (!slot || intensity < WIN_CAM_MIN_INTENSITY) return;
-    this.clearWinCamTimer();
-    this.camera.goTo(`seat:${slot}`);
-    this.winCamTimer = setTimeout(() => {
-      this.winCamTimer = null;
-      this.camera.goTo('default');
-    }, WIN_CAM_HOLD_MS);
+    if (!slot) return;
+    this.lamp.bloom(tableLayout(this.mode).seatCards[slot], LAMP_BLOOM_MS);
   }
 
   /** WIN: `count` small brand-colored rects tumbling from the felt's top rim
@@ -825,10 +767,6 @@ export class PokerScene {
     this.anim = null;
     this.killChipFx();
     const L = tableLayout(mode);
-    // Camera geometry is stale across the swap: adopt the new layout and snap
-    // to default (no tweening across a hard layout change).
-    this.clearWinCamTimer();
-    this.camera.relayout(L);
     this.app.renderer.resize(L.size.w, L.size.h, this.resolutionFor(mode));
     this.felt.layout(L, mode);
     this.lamp.layout(L, mode);
@@ -863,8 +801,6 @@ export class PokerScene {
     this.anim = null;
     for (const tl of this.loose) tl.kill();
     this.loose.clear();
-    this.clearWinCamTimer();
-    this.camera.destroy();
     this.killChipFx();
     for (const c of this.cards.board) c.killTweens();
     for (const c of this.cards.hero) c.killTweens();
