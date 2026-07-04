@@ -132,6 +132,13 @@
 .table {
   position: relative;
   height: 600px;
+  /* On-table type scale (harmonized, ~+35% over the pre-2026-07-04 sizes). */
+  --tbl-score: 18px;  /* stack / chip counts (was 13) */
+  --tbl-name: 17px;   /* seat names, YOU (was 13–14) */
+  --tbl-pot: 22px;    /* total-pot amount (was 16) */
+  --tbl-bet: 16px;    /* bet-pill amount (was 12) */
+  --tbl-cap: 12px;    /* small captions: pot label, street (was 9) */
+  --tbl-badge: 13px;  /* level + status badges (was 9–10) */
 }
 .table-cone {
   position: absolute;
@@ -218,7 +225,7 @@
 }
 .felt-street {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--tbl-cap);
   letter-spacing: 2.5px;
   color: rgba(156, 196, 255, 0.6);
   padding: 4px 12px;
@@ -249,14 +256,14 @@
 .felt-pot-chip-1 { left: 10px; top: 0; }
 .felt-pot-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--tbl-cap);
   letter-spacing: 2px;
   font-weight: 700;
   color: rgba(156, 196, 255, 0.7);
 }
 .felt-pot-amount {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: var(--tbl-pot);
   font-weight: 700;
   color: var(--c-orange-hi);
 }
@@ -418,7 +425,7 @@
   justify-content: center;
   background: var(--c-orange-grad);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--tbl-badge);
   font-weight: 900;
   font-style: italic;
   border: 2px solid var(--c-surface-2);
@@ -444,10 +451,10 @@
   gap: 6px;
   z-index: 1;
 }
-.botseat-name { font-size: 13px; font-weight: 800; }
+.botseat-name { font-size: var(--tbl-name); font-weight: 800; }
 .botseat-stack {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tbl-score);
   font-weight: 600;
   color: var(--c-green);
 }
@@ -463,7 +470,7 @@
 
 /* ---- Badges ---- */
 .badge {
-  font-size: 9px;
+  font-size: var(--tbl-badge);
   font-weight: 900;
   border-radius: 4px;
   padding: 2px 5px;
@@ -540,7 +547,7 @@
 .chips-img-1 { left: 10px; top: 0; }
 .chips-amount {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tbl-bet);
   font-weight: 700;
   color: #fff;
 }
@@ -598,10 +605,10 @@
   box-shadow: 0 4px 0 var(--c-blue-edge), 0 0 24px rgba(0, 110, 253, 0.3),
     0 12px 24px rgba(0, 0, 0, 0.4);
 }
-.hero-you { font-size: 14px; font-weight: 800; }
+.hero-you { font-size: var(--tbl-name); font-weight: 800; }
 .hero-stack {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tbl-score);
   font-weight: 600;
   color: var(--c-green);
 }
@@ -1555,6 +1562,12 @@
     flex: none;
     height: min(58vh, 470px);
     min-height: 0;
+    --tbl-score: 16px;
+    --tbl-name: 15px;
+    --tbl-pot: 19px;
+    --tbl-bet: 14px;
+    --tbl-cap: 11px;
+    --tbl-badge: 12px;
   }
 
   /* Portrait ellipse felt, centered (KEEP the translate centering — the all-in
