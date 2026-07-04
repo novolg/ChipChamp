@@ -1086,18 +1086,6 @@
   animation: pop-in 0.25s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
 }
 
-/* Faint brand watermark on the felt. */
-.felt-watermark {
-  position: absolute;
-  left: 50%;
-  bottom: 42px;
-  transform: translateX(-50%);
-  width: 220px;
-  opacity: 0.06;
-  filter: grayscale(1) brightness(3);
-  pointer-events: none;
-}
-
 /* ---- Action bubbles: each seat's last action this street ---- */
 .seat-bubble {
   position: absolute;
@@ -1586,8 +1574,7 @@
 
   /* Trim decorative clutter that crowds the small felt. */
   .felt-deck,
-  .table-cone,
-  .felt-watermark { display: none; }
+  .table-cone { display: none; }
 
   /* Bot seats: shrink the whole seat wholesale via transform (preserves the
      complex internal layout without rewriting every child). */
