@@ -26,7 +26,15 @@ let ctx: AudioContext | null = null;
 let masterNode: GainNode | null = null;
 const busNodes = new Map<BusName, GainNode>();
 const busVolumes: Record<BusName, number> = { ...BUS_DEFAULTS };
-let masterVolume = MASTER_GAIN;
+// User-facing scalar in [0,1] (1 = "100%" in the settings UI) applied ON TOP
+// OF the calibrated MASTER_GAIN trim — never written raw into the GainNode.
+// Default 1 reproduces today's tuned output (masterGain() === MASTER_GAIN).
+let masterVolume = 1;
+
+/** The actual GainNode value for the current masterVolume setting. */
+function masterGain(): number {
+  return MASTER_GAIN * masterVolume;
+}
 
 let muted = readMuted();
 const listeners = new Set<(m: boolean) => void>();
@@ -45,7 +53,7 @@ function clamp01(v: number): number {
 
 function buildGraph(c: AudioContext): void {
   masterNode = c.createGain();
-  masterNode.gain.value = masterVolume;
+  masterNode.gain.value = masterGain();
   // Gentle brick-wall limiter: protects the busiest cues (all-in into a win,
   // ~11 stacked voices) from clipping. Threshold sits above any single cue's
   // peak, so a lone click and the win arpeggio are unchanged — only stacked
@@ -98,7 +106,7 @@ export function setBusVolume(name: BusName | 'master', v: number): void {
   const clamped = clamp01(v);
   if (name === 'master') {
     masterVolume = clamped;
-    if (masterNode) masterNode.gain.value = clamped;
+    if (masterNode) masterNode.gain.value = masterGain();
     return;
   }
   busVolumes[name] = clamped;

@@ -216,18 +216,47 @@ describe('bus graph wiring', () => {
     expect(engine.getBusVolume('ambience')).toBe(0.8);
   });
 
-  it('clamps master volume to [0,1] and writes through to the master GainNode', async () => {
+  it('clamps master volume to [0,1] (raw setting) while the GainNode carries the MASTER_GAIN-scaled value', async () => {
     const { engine } = await freshAudio();
     const api = engine.ensureCtx()!;
     const master = asFake(api.bus('sfx')).connections[0] as FakeGainNode;
 
     engine.setBusVolume('master', 5);
-    expect(engine.getBusVolume('master')).toBe(1);
-    expect(master.gain.value).toBe(1);
+    expect(engine.getBusVolume('master')).toBe(1); // setting stays a 0..1 scalar
+    expect(master.gain.value).toBeCloseTo(0.22); // MASTER_GAIN * 1 — today's tuned level
 
     engine.setBusVolume('master', -1);
     expect(engine.getBusVolume('master')).toBe(0);
-    expect(master.gain.value).toBe(0);
+    expect(master.gain.value).toBe(0); // MASTER_GAIN * 0
+  });
+
+  it('scales master volume on top of the calibrated MASTER_GAIN trim, not raw (Finding 2)', async () => {
+    const { engine } = await freshAudio();
+    const api = engine.ensureCtx()!;
+    const master = asFake(api.bus('sfx')).connections[0] as FakeGainNode;
+
+    // default setting is a no-op scalar of 1 → build-time gain reproduces
+    // today's tuned output exactly, not raw 1.0.
+    expect(master.gain.value).toBeCloseTo(0.22);
+
+    engine.setBusVolume('master', 0.5);
+    expect(engine.getBusVolume('master')).toBe(0.5);
+    expect(master.gain.value).toBeCloseTo(0.11); // MASTER_GAIN * 0.5
+
+    engine.setBusVolume('master', 1);
+    expect(master.gain.value).toBeCloseTo(0.22); // MASTER_GAIN * 1 — back to tuned level, not raw 1.0
+  });
+
+  it('applies a pre-set master volume (set before the AudioContext/graph exists) through MASTER_GAIN at build time', async () => {
+    const { engine } = await freshAudio();
+    // No ensureCtx() yet — setBusVolume must still update the stored scalar
+    // that buildGraph reads on first ensureCtx(), regardless of call order.
+    engine.setBusVolume('master', 0.5);
+    expect(engine.getBusVolume('master')).toBe(0.5);
+
+    const api = engine.ensureCtx()!;
+    const master = asFake(api.bus('sfx')).connections[0] as FakeGainNode;
+    expect(master.gain.value).toBeCloseTo(0.11); // MASTER_GAIN * 0.5, applied at buildGraph time
   });
 });
 

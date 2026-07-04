@@ -215,3 +215,43 @@ describe('useSettingsStore', () => {
     expect(persisted.settings.volumes.master).toBe(0.42);
   });
 });
+
+describe('boot-time volume application to the audio engine (Finding 1)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('pushes every persisted bus volume into the engine when the store module initializes', async () => {
+    engineMocks.setBusVolume.mockClear();
+    const storage = fakeStorage({
+      'cc.settings.v1': JSON.stringify({
+        version: 1,
+        settings: { volumes: { master: 0.5, sfx: 0.2, ui: 0.3, ambience: 0.4, music: 0.6 } },
+      }),
+    });
+    vi.stubGlobal('localStorage', storage);
+    vi.resetModules();
+
+    await import('../settingsStore');
+
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('master', 0.5);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('sfx', 0.2);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ui', 0.3);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ambience', 0.4);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('music', 0.6);
+  });
+
+  it('pushes the defaults into the engine when nothing is persisted yet', async () => {
+    engineMocks.setBusVolume.mockClear();
+    vi.stubGlobal('localStorage', fakeStorage());
+    vi.resetModules();
+
+    await import('../settingsStore');
+
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('master', 1);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('sfx', 1);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ui', 1);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ambience', 0.8);
+    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('music', 0.8);
+  });
+});

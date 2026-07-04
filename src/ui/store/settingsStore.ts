@@ -123,8 +123,24 @@ export interface SettingsStore {
   setVolume: (bus: keyof Settings['volumes'], v: number) => void;
 }
 
+/** Push every persisted bus volume into the audio engine. Order-independent:
+ *  setBusVolume always updates the engine's own stored volume state even
+ *  before an AudioContext exists, and buildGraph reads that state as its
+ *  initial gain — so this works whether it runs before or after the engine's
+ *  graph is built. Without this, a saved volume only ever reached the engine
+ *  the next time the user touched a slider; until then it played at the
+ *  engine's independent defaults regardless of what the settings UI showed. */
+function applyVolumesToEngine(volumes: Settings['volumes']): void {
+  (Object.keys(volumes) as (keyof Settings['volumes'])[]).forEach((bus) => {
+    setBusVolume(bus, volumes[bus]);
+  });
+}
+
+const initialSettings = loadSettings();
+applyVolumesToEngine(initialSettings.volumes);
+
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
-  settings: loadSettings(),
+  settings: initialSettings,
   set: (key, value) => {
     const next = { ...get().settings, [key]: value };
     saveSettings(next);

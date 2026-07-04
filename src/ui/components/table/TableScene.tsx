@@ -350,6 +350,16 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
       tier: () => tierRef.current,
     });
   }
+  // Cancel any pending director-scheduled steps (audio/haptic) on final
+  // unmount, so a hand's in-flight cues (e.g. WIN clinks, ritual cardThump)
+  // don't fire after navigating away from the table. Own effect, empty deps,
+  // so it never re-runs — only its cleanup on unmount matters.
+  useEffect(() => {
+    return () => {
+      directorRef.current?.cancelAll();
+    };
+  }, []);
+
   const prevGameRef = useRef<GameState | null>(null);
 
   // Uniform scale that fits the world (layout.size) inside whatever box the
