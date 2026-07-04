@@ -19,7 +19,7 @@ const LAMP_FOCUS_BOOST = 0.06;       // added alpha while focused
 const LAMP_PULSE_BOOST = 0.14;       // peak added alpha at intensity 1
 const LAMP_PULSE_MS = 240;
 const LAMP_ALPHA_CAP = 0.5;
-export const LAMP_BLOOM_MS = 700;    // win-bloom hold (supersedes WIN_CAM_HOLD_MS once the camera is retired in Task 4)
+export const LAMP_BLOOM_MS = 700;    // win-bloom hold (superseded the retired camera's WIN_CAM_HOLD_MS)
 
 export function damp(current: number, target: number, dt: number, halfLife: number): number {
   const k = 1 - Math.pow(0.5, dt / halfLife);
@@ -164,6 +164,9 @@ export class LampActor {
 
   /** Jump to the current targets, drop transients (reduced-motion turns on). */
   snap(): void {
+    // A bloom-held focus is transient: release it here so toggling reduced
+    // motion mid-bloom doesn't leave the lamp parked over the winner.
+    if (this.bloomMs > 0) this.focusPt = null;
     const t = this.focusPt ? focusTarget(this.rest, this.focusPt, LAMP_PULL) : this.rest;
     this.posX = t.x; this.posY = t.y;
     this.focusBoost = this.focusPt ? LAMP_FOCUS_BOOST : 0;
