@@ -8,15 +8,15 @@ import {
   type Texture,
   type Ticker,
 } from 'pixi.js';
-import { gsap } from 'gsap';
 import type { LayoutMode, TableLayout } from '../layout';
 
 /** Live motion the actor reads every ambient tick — only the reduced-motion
- *  flag (the felt's breathing/glint/motes don't scale with game speed the way
+ *  flag (the felt's rail glint doesn't scale with game speed the way
  *  card/chip tweens do). `CardMotion` (speed+reducedMotion) satisfies this
  *  structurally, so PokerScene hands its one shared motion object straight
- *  through. Read live, not just at creation: a settings toggle can flip
- *  reduced motion mid-session, and the ambient loop must freeze/resume. */
+ *  through (also handed to `LampActor`, which reads the same flag for its
+ *  breathe/motes). Read live, not just at creation: a settings toggle can
+ *  flip reduced motion mid-session, and the ambient loop must freeze/resume. */
 export interface FeltMotion {
   reducedMotion(): boolean;
 }
@@ -85,35 +85,16 @@ function drawDashedEllipse(
   g.stroke(stroke);
 }
 
-/* ---------------------------------------------------------------------------
- * Lamp cone + dust motes — minTier:'full' only.
- * ------------------------------------------------------------------------- */
-
-const LAMP_RADIUS = 300; // 600px diameter
-const LAMP_Y_OFFSET = -60; // centered above felt.cy
-const LAMP_ALPHA_MIN = 0.1;
-const LAMP_ALPHA_MAX = 0.14;
-const LAMP_BREATHE_S = 8;
-const MOTE_COUNT = 20;
-const MOTE_ALPHA = 0.18;
-const GOLDEN_ANGLE = 2.399963; // deterministic even-ish spread, no RNG (matches playConfetti's idiom)
-
-interface Mote {
-  g: Graphics;
-  y: number;
-  speed: number; // px/sec, upward
-}
-
 /**
  * FeltActor — draws today's felt look purely from `layout.ts` geometry:
  * navy radial felt ellipse, leather rail with stitch + brass trim + a
- * traveling glint, racetrack line, vignette, tiled noise/weave overlay, a
- * faint brand watermark, and (full tier only) a breathing lamp cone with
- * drifting dust motes. Rebuilt wholesale on a layout change (cheap; static
- * geometry) except the rail glint / lamp breathe / motes, which are driven by
- * one ticker callback registered ONCE in the constructor so it survives
- * `layout()` rebuilds without duplicating. Exposes the drawn deck stack so the
- * deal ritual can riffle it.
+ * traveling glint, racetrack line, vignette, tiled noise/weave overlay, and a
+ * faint brand watermark. Rebuilt wholesale on a layout change (cheap; static
+ * geometry) except the rail glint, which is driven by one ticker callback
+ * registered ONCE in the constructor so it survives `layout()` rebuilds
+ * without duplicating. Exposes the drawn deck stack so the deal ritual can
+ * riffle it. (The lamp cone + dust motes live in `LampActor`, wired
+ * alongside this actor in PokerScene.)
  */
 class FeltActor {
   readonly view = new Container();
@@ -122,7 +103,6 @@ class FeltActor {
   private readonly textures: SceneTextures;
   private readonly motion: FeltMotion;
   private readonly ticker: Ticker;
-  private readonly fullTier: boolean;
 
   /** Rail glint: repositioned every tick along the ellipse; the shape itself
    *  is drawn once per layout(). Present on BOTH tiers (part of the rail). */
@@ -130,22 +110,10 @@ class FeltActor {
   private glintGeom: { cx: number; cy: number; rx: number; ry: number } | null = null;
   private glintElapsedMs = 0;
 
-  /** Lamp breathing — a real GSAP yoyo tween (mirrors CardActor's rimPulse
-   *  idiom); the ticker only toggles its paused state so a live reduced-motion
-   *  flip is picked up on the very next frame instead of needing a fresh
-   *  trigger. Full tier only. */
-  private lampBreathe: gsap.core.Tween | null = null;
-
-  /** Dust motes drifting inside the lamp cone; advanced by the same ticker.
-   *  Full tier only. */
-  private motes: Mote[] = [];
-  private moteGeom: { top: number; bottom: number } | null = null;
-
-  constructor(textures: SceneTextures, motion: FeltMotion, ticker: Ticker, fullTier: boolean) {
+  constructor(textures: SceneTextures, motion: FeltMotion, ticker: Ticker) {
     this.textures = textures;
     this.motion = motion;
     this.ticker = ticker;
-    this.fullTier = fullTier;
     this.ticker.add(this.onTick);
   }
 
@@ -153,12 +121,8 @@ class FeltActor {
     // Wholesale rebuild: destroy prior children so a mode swap can't leak nodes.
     this.view.removeChildren().forEach((c) => c.destroy({ children: true }));
     this.deckView = null;
-    this.lampBreathe?.kill();
-    this.lampBreathe = null;
     this.glint = null;
     this.glintGeom = null;
-    this.motes = [];
-    this.moteGeom = null;
 
     const { cx, cy, rx, ry } = L.felt;
     const style = feltStyle(mode);
@@ -342,66 +306,6 @@ class FeltActor {
       this.view.addChild(deck);
       this.deckView = deck;
     }
-
-    // --- Lamp cone + dust motes (full tier only).
-    if (this.fullTier) {
-      const lampCx = cx;
-      const lampCy = cy + LAMP_Y_OFFSET;
-
-      const lampGradient = new FillGradient({
-        type: 'radial',
-        center: { x: 0.5, y: 0.5 },
-        innerRadius: 0,
-        outerCenter: { x: 0.5, y: 0.5 },
-        outerRadius: 0.5,
-        colorStops: [
-          { offset: 0, color: 'rgba(255, 255, 255, 1)' },
-          { offset: 1, color: 'rgba(255, 255, 255, 0)' },
-        ],
-        textureSpace: 'local',
-      });
-      const lamp = new Graphics().circle(lampCx, lampCy, LAMP_RADIUS).fill(lampGradient);
-      lamp.blendMode = 'add';
-      this.view.addChild(lamp);
-      // fromTo's immediateRender applies the LAMP_ALPHA_MIN "from" state right
-      // away (even while paused: true below), so a reduced-motion session
-      // starts at a sane static alpha instead of popping in at 0.
-      this.lampBreathe = gsap.fromTo(
-        lamp,
-        { alpha: LAMP_ALPHA_MIN },
-        {
-          alpha: LAMP_ALPHA_MAX,
-          duration: LAMP_BREATHE_S,
-          repeat: -1,
-          yoyo: true,
-          ease: 'sine.inOut',
-          paused: true, // the ticker (onTick) owns play/pause every frame — see below
-        },
-      );
-
-      const moteContainer = new Container();
-      const moteMask = new Graphics().circle(lampCx, lampCy, LAMP_RADIUS).fill({ color: 0xffffff });
-      this.view.addChild(moteContainer, moteMask);
-      moteContainer.mask = moteMask;
-
-      const motes: Mote[] = [];
-      for (let i = 0; i < MOTE_COUNT; i++) {
-        // Deterministic pseudo-random placement (index-derived, no RNG) —
-        // mirrors playConfetti's per-index jitter idiom in PokerScene.
-        const angle = (i * GOLDEN_ANGLE) % (Math.PI * 2);
-        const radiusFrac = ((i * 53) % 100) / 100;
-        const r = Math.sqrt(radiusFrac) * LAMP_RADIUS; // sqrt: uniform area distribution
-        const x = lampCx + r * Math.cos(angle);
-        const y = lampCy + (((i * 37) % (LAMP_RADIUS * 2)) - LAMP_RADIUS);
-        const mote = new Graphics().circle(0, 0, 1).fill({ color: 0xffffff });
-        mote.alpha = MOTE_ALPHA;
-        mote.position.set(x, y);
-        moteContainer.addChild(mote);
-        motes.push({ g: mote, y, speed: 8 + (i % 5) * 3 });
-      }
-      this.motes = motes;
-      this.moteGeom = { top: lampCy - LAMP_RADIUS, bottom: lampCy + LAMP_RADIUS };
-    }
   }
 
   /** Place the glint segment at its current phase, tangent-rotated to the
@@ -418,12 +322,11 @@ class FeltActor {
   }
 
   /** The one ambient driver for everything this actor animates continuously
-   *  (rail glint travel, lamp breathe play/pause, mote drift). Registered
-   *  ONCE in the constructor — layout() only replaces the geometry/state
-   *  fields it reads, so it never double-registers across a mode swap.
-   *  Reduced motion is checked live, every frame: DYNAMIC per the plan (a
-   *  settings toggle mid-session must freeze/resume these, not just gate
-   *  their creation). */
+   *  (rail glint travel). Registered ONCE in the constructor — layout() only
+   *  replaces the geometry/state fields it reads, so it never double-registers
+   *  across a mode swap. Reduced motion is checked live, every frame: DYNAMIC
+   *  per the plan (a settings toggle mid-session must freeze/resume this, not
+   *  just gate its creation). */
   private onTick = (ticker: Ticker): void => {
     const reduced = this.motion.reducedMotion();
 
@@ -434,30 +337,14 @@ class FeltActor {
       if (!reduced) this.glintElapsedMs = (this.glintElapsedMs + ticker.deltaMS) % GLINT_PERIOD_MS;
       this.applyGlint();
     }
-
-    // Lamp breathe: idempotent play-state sync each frame (full tier only —
-    // null when the actor was built at the reduced tier).
-    this.lampBreathe?.paused(reduced);
-
-    // Motes: advance drift only while not reduced; frozen in place otherwise.
-    if (!reduced && this.moteGeom) {
-      const dt = ticker.deltaMS / 1000;
-      for (const m of this.motes) {
-        m.y -= m.speed * dt;
-        if (m.y < this.moteGeom.top) m.y = this.moteGeom.bottom;
-        m.g.position.y = m.y;
-      }
-    }
   };
 
-  /** Detach from the ticker and kill the breathe tween — called once by
-   *  PokerScene.destroy(). (A `setMode` rebuild does NOT call this: the
-   *  ticker callback is registered once in the constructor and reads the
-   *  fields `layout()` replaces, so it never needs re-registering.) */
+  /** Detach from the ticker — called once by PokerScene.destroy(). (A
+   *  `setMode` rebuild does NOT call this: the ticker callback is registered
+   *  once in the constructor and reads the fields `layout()` replaces, so it
+   *  never needs re-registering.) */
   destroy(): void {
     this.ticker.remove(this.onTick);
-    this.lampBreathe?.kill();
-    this.lampBreathe = null;
   }
 }
 

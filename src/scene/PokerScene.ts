@@ -14,6 +14,7 @@ import type { GameState } from '../engine/types';
 import { createAssets, type SceneAssets } from './assets';
 import { CameraRig } from './camera';
 import { FeltActor, type SceneTextures } from './actors/FeltActor';
+import { LampActor } from './actors/LampActor';
 import { CardActor, type CardMotion } from './actors/CardActor';
 import { ChipStackActor } from './actors/ChipStackActor';
 import {
@@ -127,6 +128,7 @@ export class PokerScene {
   private readonly app: Application;
   private mode: LayoutMode;
   private readonly felt: FeltActor;
+  private readonly lamp: LampActor;
   private readonly assets: SceneAssets;
   private readonly layers: { env: Container; table: Container; play: Container; fx: Container };
   /** Camera world: parents table/play/fx so the rig can move them as one.
@@ -203,8 +205,10 @@ export class PokerScene {
     this.camera = new CameraRig(this.world, tableLayout(mode), motion, this.app.ticker);
     // FeltActor is built here (not in `create()`) so its ambient effects can
     // read `this.reduced` live through `motion` — it doesn't exist until now.
-    this.felt = new FeltActor(textures, motion, this.app.ticker, tier === 'full');
+    this.felt = new FeltActor(textures, motion, this.app.ticker);
     this.layers.table.addChild(this.felt.view);
+    this.lamp = new LampActor(motion, this.app.ticker, tier === 'full');
+    this.layers.table.addChild(this.lamp.view); // additive light on felt, under cards
     // `?fps=1` only: registered once here (never re-registered by setMode),
     // removed in destroy() — same one-shot-registration discipline as
     // FeltActor's own ambient ticker callback.
@@ -285,6 +289,7 @@ export class PokerScene {
     host.appendChild(app.canvas);
     const scene = new PokerScene(app, mode, { noise, cardBack: assets.cardBack() }, assets, tier);
     scene.felt.layout(tableLayout(mode), mode);
+    scene.lamp.layout(tableLayout(mode), mode);
     // A canvas tap skips the current deal to its rest state.
     app.canvas.addEventListener('pointerdown', scene.skip);
     // Environment parallax: pointer over the canvas (desktop/touch) always;
@@ -826,6 +831,7 @@ export class PokerScene {
     this.camera.relayout(L);
     this.app.renderer.resize(L.size.w, L.size.h, this.resolutionFor(mode));
     this.felt.layout(L, mode);
+    this.lamp.layout(L, mode);
     this.layoutEnv(L);
     this.sizeCards(L);
     this.sizeChips(L);
@@ -865,6 +871,7 @@ export class PokerScene {
     for (const slot of ['left', 'center', 'right'] as const)
       for (const c of this.cards.bots[slot]) c.killTweens();
     this.felt.destroy();
+    this.lamp.destroy();
     this.app.destroy({ removeView: true }, { children: true, texture: false, textureSource: false });
   }
 }
