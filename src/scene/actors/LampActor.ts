@@ -11,6 +11,29 @@ const MOTE_COUNT = 20;
 const MOTE_ALPHA = 0.18;
 const GOLDEN_ANGLE = 2.399963;
 
+export const LAMP_SWAY_AMP = 4;      // px idle swing
+const LAMP_SWAY_MS = 6000;           // idle swing period
+const LAMP_PULL = 0.4;               // fraction of rest→seat the pool drifts
+const LAMP_HALF_LIFE_MS = 220;       // damping half-life for pos + boost
+const LAMP_FOCUS_BOOST = 0.06;       // added alpha while focused
+const LAMP_PULSE_BOOST = 0.14;       // peak added alpha at intensity 1
+const LAMP_PULSE_MS = 240;
+const LAMP_ALPHA_CAP = 0.5;
+export const LAMP_BLOOM_MS = 700;    // win hold (replaces the retired WIN_CAM_HOLD_MS)
+
+export function damp(current: number, target: number, dt: number, halfLife: number): number {
+  const k = 1 - Math.pow(0.5, dt / halfLife);
+  return current + (target - current) * k;
+}
+
+export function focusTarget(rest: Pt, target: Pt, pull: number): Pt {
+  return { x: rest.x + (target.x - rest.x) * pull, y: rest.y + (target.y - rest.y) * pull };
+}
+
+export function swayOffset(elapsedMs: number): number {
+  return LAMP_SWAY_AMP * Math.sin((elapsedMs / LAMP_SWAY_MS) * Math.PI * 2);
+}
+
 interface Mote { g: Graphics; y: number; speed: number; }
 
 /** Rest center of the light pool: centered above the felt center ("from above"). */
@@ -43,6 +66,13 @@ export class LampActor {
   private rest: Pt = { x: 0, y: 0 };
   private breatheMs = 0;
 
+  private focusPt: Pt | null = null;         // active focus target, or null=rest
+  private posX = 0; private posY = 0;         // current damped pool center
+  private focusBoost = 0;                     // damped brightness boost
+  private pulseMs = 0; private pulseAmt = 0;  // transient all-in pulse
+  private bloomMs = 0;                        // remaining bloom hold
+  private swayMs = 0;
+
   private readonly motion: FeltMotion;
   private readonly ticker: Ticker;
   private readonly fullTier: boolean;
@@ -62,6 +92,11 @@ export class LampActor {
     this.motes = [];
     this.moteGeom = null;
     this.rest = lampRest(L);
+    this.posX = this.rest.x;
+    this.posY = this.rest.y;
+    this.focusPt = null;
+    this.focusBoost = 0;
+    this.pulseMs = 0; this.pulseAmt = 0; this.bloomMs = 0;
     if (!this.fullTier) return;
 
     const { x: lampCx, y: lampCy } = this.rest;
@@ -105,19 +140,83 @@ export class LampActor {
     this.moteGeom = { top: lampCy - LAMP_RADIUS, bottom: lampCy + LAMP_RADIUS };
   }
 
+  /** Point the light at a seat (drift + brighten), or null to ease to rest. */
+  focus(target: Pt | null): void {
+    this.focusPt = target;
+    if (this.motion.reducedMotion()) this.snap();
+  }
+
+  /** All-in punctuation: a quick brightness spike scaled by intensity. */
+  pulse(intensity: number): void {
+    if (this.motion.reducedMotion() || intensity <= 0) return;
+    this.pulseMs = LAMP_PULSE_MS;
+    this.pulseAmt = LAMP_PULSE_BOOST * Math.min(1, intensity);
+  }
+
+  /** Win beat: focus the winner + hold an elevated boost for `ms`, then release. */
+  bloom(target: Pt, ms: number): void {
+    this.focusPt = target;
+    if (this.motion.reducedMotion()) { this.snap(); return; }
+    this.bloomMs = ms;
+  }
+
+  /** Jump to the current targets, drop transients (reduced-motion turns on). */
+  snap(): void {
+    const t = this.focusPt ? focusTarget(this.rest, this.focusPt, LAMP_PULL) : this.rest;
+    this.posX = t.x; this.posY = t.y;
+    this.focusBoost = this.focusPt ? LAMP_FOCUS_BOOST : 0;
+    this.pulseMs = 0; this.pulseAmt = 0; this.bloomMs = 0;
+    this.applyPool();
+    if (this.lamp) this.lamp.alpha = LAMP_ALPHA_MIN + this.focusBoost;
+  }
+
+  /** Position the moving group by its delta from rest. */
+  private applyPool(): void {
+    this.pool.position.set(this.posX - this.rest.x, this.posY - this.rest.y);
+  }
+
   private onTick = (ticker: Ticker): void => {
     if (!this.lamp) return;
-    const reduced = this.motion.reducedMotion();
-    if (reduced) {
-      this.lamp.alpha = LAMP_ALPHA_MIN;
-      return; // motes + breathe frozen
+    const dt = ticker.deltaMS;
+    if (this.motion.reducedMotion()) {
+      // Snap to focus target (no sway/pulse/bloom), static alpha.
+      const t = this.focusPt ? focusTarget(this.rest, this.focusPt, LAMP_PULL) : this.rest;
+      this.posX = t.x; this.posY = t.y;
+      this.applyPool();
+      this.lamp.alpha = LAMP_ALPHA_MIN + (this.focusPt ? LAMP_FOCUS_BOOST : 0);
+      return;
     }
-    this.breatheMs += ticker.deltaMS;
-    this.lamp.alpha = breatheAlpha(this.breatheMs);
+
+    // Position: damp toward the focus target (or rest); add idle sway only when unfocused.
+    const base = this.focusPt ? focusTarget(this.rest, this.focusPt, LAMP_PULL) : this.rest;
+    this.posX = damp(this.posX, base.x, dt, LAMP_HALF_LIFE_MS);
+    this.posY = damp(this.posY, base.y, dt, LAMP_HALF_LIFE_MS);
+    this.swayMs += dt;
+    const swayX = this.focusPt ? 0 : swayOffset(this.swayMs);
+    this.pool.position.set(this.posX - this.rest.x + swayX, this.posY - this.rest.y);
+
+    // Alpha: breathe + damped focus boost + transient pulse + bloom hold.
+    this.breatheMs += dt;
+    const focusing = this.focusPt !== null;
+    this.focusBoost = damp(this.focusBoost, focusing ? LAMP_FOCUS_BOOST : 0, dt, LAMP_HALF_LIFE_MS);
+    let pulse = 0;
+    if (this.pulseMs > 0) {
+      this.pulseMs = Math.max(0, this.pulseMs - dt);
+      pulse = this.pulseAmt * (this.pulseMs / LAMP_PULSE_MS);
+    }
+    let bloom = 0;
+    if (this.bloomMs > 0) {
+      this.bloomMs = Math.max(0, this.bloomMs - dt);
+      bloom = LAMP_FOCUS_BOOST; // sustained extra brightness during the hold
+      if (this.bloomMs === 0) this.focusPt = null; // release: ease back to rest
+    }
+    this.lamp.alpha = Math.min(LAMP_ALPHA_CAP, breatheAlpha(this.breatheMs) + this.focusBoost + pulse + bloom);
+
+    // Motes drift.
     if (this.moteGeom) {
-      const dt = ticker.deltaMS / 1000;
+      const s = dt / 1000;
       for (const m of this.motes) {
-        m.y -= m.speed * dt;
+        m.y -= m.speed * s;
         if (m.y < this.moteGeom.top) m.y = this.moteGeom.bottom;
         m.g.position.y = m.y;
       }
