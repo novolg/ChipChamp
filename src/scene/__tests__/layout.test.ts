@@ -5,6 +5,12 @@ import type { GameState } from '../../engine/types';
 const modes = ['landscape', 'portrait'] as const;
 
 describe('tableLayout', () => {
+  it('portrait felt, rail and shadow fit horizontally inside the canvas', () => {
+    const { felt, size } = tableLayout('portrait');
+    const outerRadius = felt.rx + 28 + 6;
+    expect(felt.cx - outerRadius).toBeGreaterThanOrEqual(0);
+    expect(felt.cx + outerRadius).toBeLessThanOrEqual(size.w);
+  });
   it.each(modes)('%s: all anchor points are inside the world bounds', (mode) => {
     const L = tableLayout(mode);
     const pts = [

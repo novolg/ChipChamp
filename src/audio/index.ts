@@ -67,9 +67,11 @@ function playBuffer(name: string, bus: BusName, buffer: AudioBuffer, opts?: { pa
     if (c.ctx.state === 'suspended') void c.ctx.resume();
     const src = c.ctx.createBufferSource();
     src.buffer = buffer;
-    // ±4% pitch/speed jitter so repeated cues (chip clinks, card slides)
-    // don't sound like the exact same recording on every hit.
+    // ±4% pitch/speed and ±1.5 dB level jitter so repeated cues (chip
+    // clinks, card slides) don't sound like the exact same recording.
     src.playbackRate.value = 1 + (Math.random() * 0.08 - 0.04);
+    const level = c.ctx.createGain();
+    level.gain.value = 0.85 + Math.random() * 0.3;
     const busNode = c.bus(bus);
     let dest: AudioNode = busNode;
     if (opts?.pan !== undefined) {
@@ -78,7 +80,7 @@ function playBuffer(name: string, bus: BusName, buffer: AudioBuffer, opts?: { pa
       panner.connect(busNode);
       dest = panner;
     }
-    src.connect(dest);
+    src.connect(level).connect(dest);
     src.start();
     return true;
   } catch (e) {

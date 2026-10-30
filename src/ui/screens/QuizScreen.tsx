@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
@@ -31,6 +31,9 @@ export function QuizScreen({ quizId }: { quizId: string }) {
   const [results, setResults] = useState<boolean[]>([]);
   const [finished, setFinished] = useState(false);
   const recorded = useRef(false);
+  // Stable callback refs run when each new question/feedback mounts, including
+  // after AnimatePresence has finished removing the previous question.
+  const focusEntry = useCallback((node: HTMLElement | null) => { node?.focus(); }, []);
 
   if (!quiz) {
     return (
@@ -129,7 +132,7 @@ export function QuizScreen({ quizId }: { quizId: string }) {
               animate="enter"
               exit="exit"
             >
-            <p className="quiz-prompt">{q.prompt}</p>
+            <p className="quiz-prompt" ref={focusEntry} tabIndex={-1} aria-label={`Question ${index + 1} of ${total}: ${q.prompt}`}>{q.prompt}</p>
             <div className="quiz-options">
               {q.options.map((opt, oi) => {
                 const isChosen = picked === opt.id;
@@ -151,11 +154,11 @@ export function QuizScreen({ quizId }: { quizId: string }) {
             </div>
             {picked && (
               <div className={`quiz-feedback ${picked === q.correctOptionId ? 'quiz-feedback-right' : 'quiz-feedback-wrong'}`}>
-                <span className="quiz-feedback-head">
+                <span className="quiz-feedback-head" ref={focusEntry} tabIndex={-1} aria-describedby={`explanation-${q.id}`}>
                   {picked === q.correctOptionId ? '✓ Correct' : '✗ Not quite'}
                 </span>
-                <p className="quiz-explain">{q.explanation}</p>
-                <button className="btn btn-blue quiz-next" onClick={next}>
+                <p className="quiz-explain" id={`explanation-${q.id}`}>{q.explanation}</p>
+                <button className="btn btn-orange quiz-next" onClick={next}>
                   {isLast ? 'SEE RESULT' : 'NEXT QUESTION'}
                 </button>
               </div>
@@ -193,6 +196,8 @@ interface QuizResultProps {
 
 function QuizResult({ passed, stars, score, correctCount, total, passThreshold, onContinue, onRetry }: QuizResultProps) {
   const shownPct = useCountUp(Math.round(score * 100), 700);
+  const heading = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { heading.current?.focus(); }, []);
 
   // Ring each star in as it lights (matching the CSS stagger), then the verdict
   // sting. Mount-only — props are fixed for the component's life.
@@ -216,15 +221,15 @@ function QuizResult({ passed, stars, score, correctCount, total, passThreshold, 
           </span>
         ))}
       </div>
-      <p className="quiz-result-head">{passed ? 'Passed' : 'Not yet'}</p>
+      <p className="quiz-result-head" ref={heading} tabIndex={-1} aria-describedby="quiz-result-detail">{passed ? 'Passed' : 'Not yet'}</p>
       <p className="quiz-result-pct">{shownPct}%</p>
-      <p className="quiz-result-detail">
+      <p className="quiz-result-detail" id="quiz-result-detail">
         {correctCount} of {total} correct.{' '}
         {passed ? 'Nice work.' : `You need ${Math.round(passThreshold * 100)}% to pass.`}
       </p>
       <div className="quiz-actions">
         {passed ? (
-          <button className="btn btn-blue" onClick={onContinue}>CONTINUE</button>
+          <button className="btn btn-orange" onClick={onContinue}>CONTINUE</button>
         ) : (
           <button className="btn btn-orange" onClick={onRetry}>TRY AGAIN</button>
         )}

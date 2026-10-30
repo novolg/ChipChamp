@@ -45,6 +45,8 @@ export function applyProgressEvent(
       return next;
 
     case 'freePlayHand':
+      if (event.handId && progress.lastFreePlayHandId === event.handId) return progress;
+      if (event.handId) next.lastFreePlayHandId = event.handId;
       next.freePlayStats = {
         handsPlayed: next.freePlayStats.handsPlayed + 1,
         netChips: next.freePlayStats.netChips + event.netChips,

@@ -75,8 +75,16 @@ class FakeBiquadFilterNode extends FakeNode {
   type = 'lowpass';
   frequency = new FakeParam();
   Q = new FakeParam();
+  gain = new FakeParam();
   constructor() {
     super('biquad');
+  }
+}
+
+class FakeConvolverNode extends FakeNode {
+  buffer: unknown = null;
+  constructor() {
+    super('convolver');
   }
 }
 
@@ -118,6 +126,9 @@ class FakeAudioContext {
   }
   createBiquadFilter(): FakeBiquadFilterNode {
     return new FakeBiquadFilterNode();
+  }
+  createConvolver(): FakeConvolverNode {
+    return new FakeConvolverNode();
   }
   createBuffer(_channels: number, frames: number): FakeAudioBuffer {
     return new FakeAudioBuffer(frames);
@@ -166,18 +177,21 @@ describe('bus graph wiring', () => {
     expect(engine.ensureCtx()).toBeNull();
   });
 
-  it('wires bus -> master -> limiter -> destination with the existing limiter values', async () => {
+  it('wires bus -> master -> rumble cut -> air shelf -> limiter -> destination', async () => {
     const { engine } = await freshAudio();
     const api = engine.ensureCtx();
     expect(api).not.toBeNull();
 
     const sfxBus = asFake(api!.bus('sfx'));
-    expect(sfxBus.connections).toHaveLength(1);
     const master = sfxBus.connections[0] as FakeGainNode;
     expect(master.gain.value).toBeCloseTo(0.22);
 
     expect(master.connections).toHaveLength(1);
-    const limiter = master.connections[0] as FakeDynamicsCompressorNode;
+    const rumbleCut = master.connections[0] as unknown as FakeBiquadFilterNode;
+    expect(rumbleCut.type).toBe('highpass');
+    const air = rumbleCut.connections[0] as unknown as FakeBiquadFilterNode;
+    expect(air.type).toBe('highshelf');
+    const limiter = air.connections[0] as FakeDynamicsCompressorNode;
     expect(limiter.threshold.value).toBe(-8);
     expect(limiter.knee.value).toBe(4);
     expect(limiter.ratio.value).toBe(12);
@@ -185,6 +199,21 @@ describe('bus graph wiring', () => {
     expect(limiter.release.value).toBe(0.12);
 
     expect(limiter.connections).toEqual([api!.ctx.destination]);
+  });
+
+  it('sends only the sfx bus to the room reverb, which returns into master', async () => {
+    const { engine } = await freshAudio();
+    const api = engine.ensureCtx()!;
+    const sfxBus = asFake(api.bus('sfx'));
+    const master = sfxBus.connections[0];
+    expect(sfxBus.connections).toHaveLength(2);
+    const send = sfxBus.connections[1] as FakeGainNode;
+    expect(send.gain.value).toBeGreaterThan(0);
+    expect(send.gain.value).toBeLessThan(0.3);
+    const room = send.connections[0] as unknown as FakeConvolverNode;
+    expect(room.buffer).not.toBeNull();
+    expect(room.connections).toEqual([master]);
+    expect(asFake(api.bus('ui')).connections).toEqual([master]);
   });
 
   it('applies bus defaults: sfx 1, ui 1, ambience .8, music .8', async () => {
@@ -290,7 +319,7 @@ describe('mute', () => {
 
     const before = (api.ctx as unknown as FakeAudioContext).oscillators.length;
     audio.setMuted(false);
-    // the 'click' recipe is a single tone() call -> exactly one oscillator
+    // the 'click' recipe has exactly one oscillator (plus a noise click)
     expect((api.ctx as unknown as FakeAudioContext).oscillators.length).toBe(before + 1);
   });
 });
@@ -302,9 +331,8 @@ describe('playCue passthrough', () => {
 
     audio.playCue('win', { semitones: 2 });
 
-    // the 'win' recipe is a 4-note arpeggio starting at 523.25Hz
+    // the 'win' recipe opens on a bell at C5 (523.25Hz), transposed
     const oscillators = (api.ctx as unknown as FakeAudioContext).oscillators;
-    expect(oscillators).toHaveLength(4);
     const k = Math.pow(2, 2 / 12);
     expect(oscillators[0].frequency.setValueAtTime).toHaveBeenCalledWith(
       523.25 * k,
@@ -319,8 +347,7 @@ describe('playCue passthrough', () => {
     const uiBus = api.bus('ui');
     const sfxBus = api.bus('sfx');
 
-    // 'click' is a single tone() call -> exactly one new gain node, wired
-    // straight into the bus its voice recipe targets.
+    // 'click' voices are wired straight into the bus its recipe targets.
     let before = fakeCtx.gains.length;
     audio.playCue('click');
     const clickGain = fakeCtx.gains[before];

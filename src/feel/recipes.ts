@@ -182,14 +182,17 @@ export const RECIPES: Record<FeelEvent['type'], (e: FeelEvent, i: Intensity) => 
         params: { winnerSlot: w.winnerSlot, amount: w.amount },
       },
       { at: 120, channel: 'audio', cue: 'win', params: { semitones: TIER_SEMITONES[i.tier] } },
-      {
+    ];
+    // Confetti celebrates the hero only (same rule as the DOM fallback overlay).
+    if (w.heroWon) {
+      steps.push({
         at: 150,
         channel: 'scene',
         cue: 'confetti',
         minTier: 'reduced',
         params: { count: CONFETTI_COUNT[i.tier] },
-      },
-    ];
+      });
+    }
     // 70ms stagger controller-sanctioned: the brief's "chipClink@420 ×TIER_CLINKS"
     // omitted the qualifier by accident — simultaneous clinks would stack into
     // one thud, and legacy useTableSfx staggered its WIN clinks too.

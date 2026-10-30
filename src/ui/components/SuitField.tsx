@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 /**
  * Animated "suit field" background — a dense, jittered lattice of ♠♥♦♣ glyphs
@@ -8,6 +9,7 @@ import { useEffect, useRef } from 'react';
  * Ported from the design handoff's framework-agnostic canvas script.
  */
 export function SuitField() {
+  const reduced = useReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -19,7 +21,6 @@ export function SuitField() {
     // The heaviest motion source in the app — gate it on the user's reduced-
     // motion preference and tab visibility (CSS/Framer kill-switches can't reach
     // a canvas rAF). t0 is mutable so it can absorb hidden time on resume.
-    const rm = window.matchMedia('(prefers-reduced-motion: reduce)');
     let t0 = performance.now();
 
     // Cursor + eased focus point.
@@ -290,7 +291,7 @@ export function SuitField() {
     let raf = 0;
     let hiddenAt = 0;
     const start = () => {
-      if (raf !== 0 || rm.matches || document.hidden) return;
+      if (raf !== 0 || reduced || document.hidden) return;
       raf = requestAnimationFrame(draw);
     };
     const stop = () => {
@@ -300,26 +301,23 @@ export function SuitField() {
     };
     const staticFrame = () => { draw(); stop(); };
 
-    if (rm.matches) staticFrame();
+    if (reduced) staticFrame();
     else start();
 
     const onVisibility = () => {
       if (document.hidden) { hiddenAt = performance.now(); stop(); }
       else { if (hiddenAt) t0 += performance.now() - hiddenAt; hiddenAt = 0; start(); }
     };
-    const onRM = () => { if (rm.matches) { stop(); staticFrame(); } else start(); };
     document.addEventListener('visibilitychange', onVisibility);
-    rm.addEventListener?.('change', onRM);
 
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('resize', sizeField);
       document.removeEventListener('visibilitychange', onVisibility);
-      rm.removeEventListener?.('change', onRM);
       stop();
     };
-  }, []);
+  }, [reduced]);
 
   return <canvas ref={canvasRef} className="suit-field" aria-hidden="true" />;
 }

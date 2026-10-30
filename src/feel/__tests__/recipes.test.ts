@@ -141,6 +141,11 @@ describe('RECIPES validator', () => {
     expect(win?.params).toMatchObject({ semitones: 4 });
   });
 
+  it('WIN throws confetti only for the hero', () => {
+    const botWin = RECIPES.WIN({ type: 'WIN', heroWon: false, amount: 1000, winnerSlot: 'left' }, at('monster'));
+    expect(botWin.find((s) => s.cue === 'confetti')).toBeUndefined();
+  });
+
   it('WIN only adds the success haptic when heroWon', () => {
     const heroWin = RECIPES.WIN({ type: 'WIN', heroWon: true, amount: 40, winnerSlot: 'hero' }, at('small'));
     const botWin = RECIPES.WIN({ type: 'WIN', heroWon: false, amount: 40, winnerSlot: 'left' }, at('small'));

@@ -5,6 +5,8 @@ import type { ActionType, Card, Street } from '../engine/types';
 export type LessonBlock =
   | { kind: 'text'; markdown: string }
   | { kind: 'handRankTable' }
+  | { kind: 'bestFiveChallenge' }
+  | { kind: 'positionChallenge' }
   | { kind: 'cardExample'; cards: Card[]; caption: string }
   | { kind: 'callout'; tone: 'tip' | 'warning'; text: string }
   /** Interactive step-through of one example hand, preflop → showdown. */
@@ -106,6 +108,7 @@ export interface Progress {
   quizScores: Record<string, { best: number; attempts: number }>;
   completedScriptedHandIds: string[];
   freePlayStats: { handsPlayed: number; netChips: number };
+  lastFreePlayHandId?: string;
   lastUpdated: string;
 }
 
@@ -113,4 +116,4 @@ export type ProgressEvent =
   | { type: 'lessonCompleted'; lessonId: string }
   | { type: 'quizAttempted'; quizId: string; score: number }
   | { type: 'scriptedHandCompleted'; handId: string }
-  | { type: 'freePlayHand'; netChips: number };
+  | { type: 'freePlayHand'; netChips: number; handId?: string };

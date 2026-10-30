@@ -1,0 +1,488 @@
+/* ============================================================
+   Midnight Indigo look (v3) — the play screen as drawn in
+   output/imagegen/chipchamp-dark-variants/01-midnight-indigo.png.
+   Loaded LAST (App.tsx) so it layers over table.css / screens.css without
+   rewriting them. Palette lives in tokens.css; this sheet owns the frame,
+   header, seat portraits/plates, pot, dock and coach treatment.
+   Desktop geometry is scoped to min-width: 761px so the ≤760px portrait
+   block in screens.css / table.css stays exactly as it was.
+   ============================================================ */
+
+body { background: #070914; }
+
+/* ---- Frame: 1440x900 canvas over the saloon backdrop ---- */
+@media (min-width: 761px) {
+  .frame {
+    width: 1440px;
+    height: 900px;
+    border: 1px solid #1c2344;
+    border-radius: 20px;
+  }
+}
+.frame-table {
+  background-color: #101529;
+  background-image:
+    radial-gradient(ellipse 62% 58% at 40% 52%, rgba(10, 13, 30, 0.55), rgba(10, 13, 30, 0) 72%),
+    linear-gradient(180deg, rgba(10, 13, 30, 0.35) 0%, rgba(10, 13, 30, 0.1) 40%, rgba(10, 13, 30, 0.7) 100%),
+    url('/assets/indigo/bg-saloon.webp');
+  background-size: 100% 100%, 100% 100%, cover;
+  background-position: center;
+}
+
+/* ---- Header (all screens): logo · LEARN/FREE PLAY · blinds ………… ring · balance · sfx · gear ---- */
+@media (min-width: 761px) {
+  .frame-header {
+    height: 76px;
+    padding: 0 28px;
+    gap: 22px;
+    justify-content: flex-start;
+    border-bottom: none;
+    background: linear-gradient(180deg, rgba(8, 10, 24, 0.72), rgba(8, 10, 24, 0));
+  }
+  .frame-brand,
+  .frame-right { display: contents; }
+  .frame-logo { order: 0; height: 40px; }
+  .nav-switch { order: 1; margin-left: 12px; }
+  .frame-header-extra { order: 2; margin-left: 14px; }
+  .hud { order: 3; margin-left: auto; }
+  .sfx-toggle { order: 4; }
+  .settings-toggle { order: 5; }
+}
+.frame-table .frame-header-extra {
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #eef0fa;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+@media (min-width: 761px) {
+/* Nav: two chunky pills — dark LEARN, amber FREE PLAY thumb. */
+.nav-switch {
+  gap: 10px;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.nav-thumb {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 150px;
+  border-radius: 12px;
+  background: var(--c-orange-grad);
+  box-shadow: 0 4px 0 var(--c-orange-edge), 0 10px 22px rgba(255, 182, 77, 0.28),
+    inset 0 2px 0 rgba(255, 240, 210, 0.6);
+}
+.nav-thumb[data-pos='learn'] { width: 104px; }
+.nav-thumb[data-pos='free'] { transform: translateX(114px); }
+.nav-seg {
+  width: 104px;
+  padding: 11px 0;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--c-text-2);
+  background: linear-gradient(180deg, #232c52, #1a2142);
+  box-shadow: 0 4px 0 #0b0f22, inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.nav-seg + .nav-seg { width: 150px; }
+.nav-seg-active { background: transparent; box-shadow: none; color: #3a2100; }
+
+/* HUD + icon buttons: dark rounded capsules. */
+.hud-balance,
+.sfx-toggle,
+.settings-toggle {
+  background: linear-gradient(180deg, #1c2448, #141a36);
+  border: 1px solid #2a3462;
+  box-shadow: 0 4px 0 #0a0d1f, inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.sfx-toggle,
+.settings-toggle {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: #e8ebf7;
+}
+.hud-balance-amount { font-size: 18px; color: var(--c-orange-hi); }
+}
+
+/* ---- Grid: 1032px play column + 340px full-height coach ---- */
+@media (min-width: 761px) {
+  .frame-table .frame-body { padding: 8px 24px 20px; }
+  .play-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+  .play-main { gap: 12px; }
+  /* visible: 3D bots' hats and hops may rise past the stage top edge. */
+  .frame-table .scene-stage { height: 620px; overflow: visible; }
+  .play-controls { min-height: 150px; }
+  .coach { align-self: stretch; }
+}
+
+/* ---- Bot seats: big portrait over a compact plate ---- */
+@media (min-width: 761px) {
+  .scene-seat .botseat-top {
+    width: 250px;
+    height: 214px;
+  }
+  .scene-seat .botseat-avatar-wrap {
+    left: 50%;
+    top: auto;
+    bottom: 34px;
+    width: 188px;
+    height: 188px;
+    margin-left: -94px;
+  }
+  .scene-seat .botseat-avatar {
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .scene-seat .botseat-plate {
+    left: 8px;
+    right: 8px;
+    padding-left: 44px;
+    justify-content: flex-start;
+  }
+  /* Level chip sits inside the plate's left end (it lives in the avatar wrap,
+     whose left edge is 31px into the 250px seat box). */
+  .scene-seat .seat-level {
+    left: -15px;
+    bottom: -27px;
+  }
+  .scene-seat .seat-bubble {
+    top: 14px;
+  }
+  .scene-seat .acting-ring { display: none; }
+  .scene-seat .botseat-acting .botseat-avatar-wrap::after { display: none; }
+  .scene-seat .botseat-acting .botseat-avatar-wrap { transform: translateY(-4px); }
+}
+/* Everything below is desktop-only: the ≤760px block keeps its own compact
+   sizing (it only inherits the indigo palette via tokens). */
+@media (min-width: 761px) {
+/* Folded seats stay readable (portrait dims itself); plate goes quiet. */
+.botseat-folded { opacity: 1; }
+.botseat-folded .botseat-plate { opacity: 0.6; }
+
+.botseat-plate,
+.hero-plate {
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(28, 35, 70, 0.96), rgba(17, 22, 48, 0.96));
+  border: 1px solid #2f3a6b;
+  box-shadow: 0 4px 0 #080b1a, inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 12px 24px rgba(0, 0, 0, 0.45);
+  padding: 7px 12px;
+  gap: 8px;
+}
+.botseat-name,
+.hero-you {
+  font-size: 15px;
+  font-weight: 900;
+  font-style: italic;
+  color: #f2f4fb;
+}
+.botseat-role {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.botseat-stack,
+.hero-stack {
+  margin-left: auto;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--c-orange-hi);
+}
+.seat-level {
+  min-width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 2px solid #0b0f22;
+  color: #3a2100;
+  font-size: 13px;
+  box-shadow: 0 2px 0 #0b0f22;
+}
+.botseat-acting .botseat-plate,
+.hero-plate-acting {
+  border-color: var(--c-orange);
+  box-shadow: 0 4px 0 var(--c-orange-edge), 0 0 0 1px rgba(255, 182, 77, 0.4),
+    0 0 26px rgba(255, 182, 77, 0.32), inset 0 1px 0 rgba(255, 230, 180, 0.18);
+}
+/* Shot clock: a thin amber bar draining along the acting plate's bottom edge. */
+.botseat-acting .botseat-plate::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--c-orange);
+  transform-origin: left center;
+  animation: plate-clock var(--botdelay-ms, 750ms) linear forwards;
+}
+@keyframes plate-clock { to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .botseat-acting .botseat-plate::after { animation: none; }
+}
+
+/* Action bubbles: chunky white tag; bets in amber. */
+.seat-bubble {
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 900;
+  font-style: italic;
+  padding: 7px 14px;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 10px 20px rgba(0, 0, 0, 0.35);
+}
+.seat-bubble-blue,
+.seat-bubble-red { background: #f4f5fb; color: #12162c; }
+.seat-bubble-orange { background: var(--c-orange-grad); color: #2e1a00; }
+
+/* ---- Hero plate ---- */
+.hero-plate { padding: 9px 18px; gap: 12px; min-width: 270px; }
+.hero .badge-blind {
+  background: #0d1226;
+  color: var(--c-orange-hi);
+  border: 1px solid #2f3a6b;
+}
+
+/* ---- Pot + street ---- */
+.felt-street {
+  padding: 6px 22px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #161b38, #0e1228);
+  border: 1px solid #2f3a6b;
+  box-shadow: 0 3px 0 #070a17;
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #f2f4fb;
+}
+.felt-pot {
+  padding: 8px 20px 8px 12px;
+  gap: 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #161b38, #0e1228);
+  border: 1px solid #2f3a6b;
+  box-shadow: 0 4px 0 #070a17, 0 12px 24px rgba(0, 0, 0, 0.4);
+}
+.felt-pot-label {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--c-orange-hi);
+}
+.felt-pot-amount {
+  font-family: var(--font-ui);
+  font-size: 26px;
+  font-weight: 900;
+  font-style: italic;
+  color: #fff;
+}
+
+/* ---- Action dock ---- */
+.action-bar {
+  gap: 14px;
+  padding: 16px 22px 18px;
+  border-radius: var(--r-club);
+  background: linear-gradient(115deg, rgba(30, 39, 74, 0.96), rgba(20, 26, 51, 0.96)); /* --panel-bg, translucent over the saloon */
+  border: var(--panel-border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.bet-label { font-size: 13px; letter-spacing: 1.5px; color: var(--c-text-2); margin-right: 8px; }
+.bet-preset {
+  min-width: 66px;
+  padding: 9px 14px;
+  border-radius: var(--r-choice);
+  border: 1px solid var(--c-border-2);
+  background: #0d1226ec;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text-2);
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.bet-preset:hover:not(:disabled) { border-color: var(--c-accent); transform: translateY(-2px); }
+/* Selected = the lobby's choice look: amber rim, warm dark fill, amber text. */
+.bet-preset-active {
+  border-color: var(--c-accent);
+  background: #352d30;
+  color: var(--c-accent);
+  box-shadow: none;
+}
+.bet-slider { height: 14px; margin: 0 16px; border-radius: 7px; background: #0b0f25; }
+.bet-slider-fill { border-radius: 7px; background: var(--c-orange-grad); }
+.bet-slider-knob { width: 30px; height: 30px; background: #fff; border: none; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(255, 255, 255, 0.15); }
+.bet-stepper { border-radius: 12px; border: 1px solid #252e58; background: #0f1430; }
+.bet-step {
+  width: 40px;
+  height: 40px;
+  margin: 4px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #2a3462, #1d2448);
+  color: #fff;
+  font-size: 18px;
+}
+.bet-step:first-child,
+.bet-step:last-child { border: none; }
+.bet-step-amount { min-width: 62px; text-align: center; font-family: var(--font-ui); font-size: 20px; font-weight: 900; }
+.action-row-buttons { gap: 16px; }
+.action-btn { min-height: 66px; border-radius: 14px; }
+.action-btn b { font-size: 21px; font-weight: 900; font-style: italic; }
+.action-btn small { font-family: var(--font-ui); font-size: 14px; font-weight: 800; }
+/* FOLD is a subdued slate secondary; RAISE stays the one loud amber call. */
+.action-row-buttons .btn-red {
+  background: linear-gradient(180deg, #5c6584, #3f4764);
+  border-color: #2b3149;
+  box-shadow: 0 5px 0 #1d2236, inset 0 2px 0 rgba(255, 255, 255, 0.18);
+}
+.action-row-buttons .btn-outline-orange {
+  background: linear-gradient(180deg, #151b3a, #0f1430);
+  border: 2px solid var(--c-orange);
+  box-shadow: 0 5px 0 #070a17, 0 0 18px rgba(255, 182, 77, 0.16);
+  color: #fff;
+}
+.action-row-buttons .btn-orange { color: #2e1a00; }
+
+/* ---- Coach: full-height glass-dark panel ---- */
+.coach {
+  border-radius: var(--r-club);
+  background: linear-gradient(115deg, rgba(30, 39, 74, 0.96), rgba(20, 26, 51, 0.96)); /* --panel-bg, translucent over the saloon */
+  border: var(--panel-border);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.45);
+  padding: 26px 22px;
+  gap: 20px;
+}
+.coach-title {
+  font-size: 22px;
+  letter-spacing: 2.5px;
+  color: var(--c-orange-hi);
+}
+.coach-live {
+  width: 16px;
+  height: 16px;
+  border: none;
+  box-shadow: 0 0 0 4px rgba(75, 224, 138, 0.18), 0 0 12px rgba(75, 224, 138, 0.6);
+}
+.coach-tiles { gap: 10px; }
+.coach-tile {
+  padding: 14px 14px 16px;
+  border-radius: var(--r-choice);
+  background: var(--c-surface-sunken);
+  border: 1px solid var(--c-border-2);
+  box-shadow: none;
+}
+.coach-tile-label { font-size: 11px; font-weight: 600; letter-spacing: 1.7px; color: var(--c-accent); }
+.coach-tile-value { font-family: var(--font-ui); font-size: 22px; font-weight: 900; line-height: 1.15; }
+.coach-equity { color: var(--c-green); text-shadow: none; }
+.coach-needs { color: var(--c-orange-hi); text-shadow: none; }
+.coach-bar { height: 16px; border-radius: 8px; background: #0b0f25; }
+.coach-suggest-btn { min-height: 56px; padding: 0 26px; font-size: 20px; font-style: italic; }
+.coach-confidence { font-size: 13px; letter-spacing: 1px; color: #8f86ff; }
+.coach-note { font-size: 16px; line-height: 1.55; font-weight: 600; color: #eef0fa; }
+.coach-idle { font-size: 15px; line-height: 1.5; color: var(--c-text-2); }
+
+.coach-posse {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px 6px;
+  border-radius: 14px;
+  background: var(--c-surface-sunken);
+  border: 1px solid var(--c-border-2);
+}
+.coach-posse-title {
+  padding-bottom: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.7px;
+  color: var(--c-accent);
+}
+.coach-posse-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-top: 1px solid #1d2448;
+  font-size: 15px;
+  font-weight: 800;
+  color: #eef0fa;
+  transition: opacity var(--t-hover);
+}
+.coach-posse-stack { font-weight: 900; color: var(--c-orange-hi); }
+.coach-posse-row-dim { opacity: 0.45; }
+.coach-posse-row-acting .coach-posse-name { color: var(--c-orange-hi); }
+.coach-suggest .btn-red {
+  background: linear-gradient(180deg, #5c6584, #3f4764);
+  box-shadow: 0 5px 0 #1d2236, inset 0 2px 0 rgba(255, 255, 255, 0.18);
+}
+}
+
+/* The dock shell stays on screen while bots act / after the hand, so the
+   table never loses its bottom frame. */
+@media (min-width: 761px) {
+  .play-controls > .play-wait,
+  .play-controls > .game-over {
+    min-height: 150px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(24, 31, 64, 0.8), rgba(15, 20, 44, 0.8));
+    border: 1px solid #2c3663;
+    box-shadow: 0 6px 0 #070a17, inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  .play-controls > .play-wait { font-size: 17px; color: var(--c-text-2); }
+  .play-controls > .btn {
+    align-self: center;
+    min-width: 380px;
+    min-height: 68px;
+    border-radius: 16px;
+    font-size: 21px;
+    font-weight: 900;
+  }
+}
+/* Win banner: indigo panel with an amber rim (was brand blue). */
+.win-banner {
+  background: linear-gradient(180deg, rgba(28, 35, 70, 0.97), rgba(15, 20, 44, 0.97));
+  border-color: var(--c-orange);
+  box-shadow: 0 6px 0 var(--c-orange-edge), 0 0 40px rgba(255, 182, 77, 0.3), 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* Crowded plate (all-in): drop the role tag so badges + stack stay inside. */
+.botseat-plate .badge { white-space: nowrap; }
+.botseat-plate:has(.badge-allin) .botseat-role { display: none; }
+
+/* Post-hand recap in the coach (handSummary). */
+.coach-recap { display: flex; flex-direction: column; gap: 8px; }
+.coach-recap-title { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; color: var(--c-orange); animation: rise-in 0.3s var(--ease-out) backwards; }
+.coach-strip .coach-recap .coach-note { display: block; margin: 0; font-size: 13px; line-height: 1.4; }
+.coach-strip .coach-recap-title { display: none; }
+
+/* ---- Phones: bet row on two lines + thumb-sized targets; bot plates fit ---- */
+@media (max-width: 760px) {
+  /* Row 1: label + presets. Row 2: slider + stepper. The slider's basis is too
+     wide to share row 1, so it wraps and the stepper follows it. */
+  .action-row-bet { flex-wrap: wrap; row-gap: 10px; }
+  .bet-preset { flex: 1 1 0; min-width: 44px; min-height: 40px; padding: 6px 4px; }
+  .bet-slider { order: 2; flex: 1 0 calc(100% - 190px); margin: 0 14px 0 8px; }
+  .bet-stepper { order: 3; }
+  .bet-step { width: 40px; height: 40px; margin: 3px; }
+  .bet-step-amount { min-width: 52px; font-size: 18px; }
+  /* Three plates share a narrow felt: the role tag made them overlap the
+     neighbouring portrait (Ben's BB badge hid under Cleo). */
+  .scene-seat .botseat-role { display: none; }
+  /* The centre seat sits higher, so its plate meets the side portraits —
+     keep it on top so the stack/blind badge stay readable. */
+  .scene-seat-center { z-index: 3; }
+}

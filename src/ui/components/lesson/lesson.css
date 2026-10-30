@@ -10,17 +10,17 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 26px 28px 24px;
+  padding: 28px 30px 26px;
   margin-bottom: var(--sp-6);
-  border-radius: var(--r-panel);
-  border: 1px solid var(--c-border-2);
-  box-shadow: var(--sh-plate);
+  border-radius: var(--r-club);
+  border: var(--panel-border);
   animation: rise-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
 }
-.lesson-hero-blue { background: linear-gradient(135deg, #16223e 0%, #14141e 70%); }
-.lesson-hero-red { background: linear-gradient(135deg, #341a22 0%, #14141e 70%); }
-.lesson-hero-orange { background: linear-gradient(135deg, #33260f 0%, #14141e 70%); }
-.lesson-hero-green { background: linear-gradient(135deg, #15301f 0%, #14141e 70%); }
+/* Club panel skin; the category colour lives on as a soft glow behind the glyph. */
+.lesson-hero-blue { background: radial-gradient(ellipse at 95% 50%, rgba(90, 168, 255, 0.14), transparent 60%), var(--panel-bg); }
+.lesson-hero-red { background: radial-gradient(ellipse at 95% 50%, rgba(255, 71, 87, 0.14), transparent 60%), var(--panel-bg); }
+.lesson-hero-orange { background: radial-gradient(ellipse at 95% 50%, rgba(255, 182, 77, 0.14), transparent 60%), var(--panel-bg); }
+.lesson-hero-green { background: radial-gradient(ellipse at 95% 50%, rgba(75, 224, 138, 0.14), transparent 60%), var(--panel-bg); }
 .lesson-hero-glyph {
   position: absolute;
   right: -14px;
@@ -38,22 +38,21 @@
 .lesson-hero-green .lesson-hero-glyph { color: var(--c-green); }
 .lesson-hero-kicker {
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 2.5px;
-  color: var(--c-text-faint);
+  font-weight: 600;
+  letter-spacing: 1.7px;
+  color: var(--c-accent);
 }
 .lesson-hero-title {
-  margin: 0;
+  margin: 6px 0 2px;
   font-size: 32px;
-  font-weight: 900;
-  font-style: italic;
-  line-height: 1.1;
+  font-weight: 600;
+  line-height: 1.15;
 }
 .lesson-hero-meta {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  color: var(--c-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: var(--c-text-3);
 }
 
 /* ---- Shared widget shell ---- */
@@ -61,11 +60,10 @@
 .posmap,
 .podds,
 .tapquiz {
-  border-radius: var(--r-panel);
-  background: var(--c-surface-2);
-  border: 1px solid var(--c-border-2);
-  box-shadow: var(--sh-plate);
-  padding: 18px;
+  border-radius: var(--r-club);
+  background: var(--panel-bg);
+  border: var(--panel-border);
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -91,9 +89,9 @@
 .timeline-pill:hover:not(.timeline-pill-active) { color: var(--c-text); }
 .timeline-pill-done { color: var(--c-green); }
 .timeline-pill-active {
-  background: var(--c-blue-grad);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 110, 253, 0.4);
+  background: var(--c-accent-grad);
+  color: var(--c-accent-ink);
+  box-shadow: var(--sh-accent);
 }
 .timeline-felt {
   display: flex;
@@ -153,7 +151,7 @@
 .posmap-seat circle { transition: opacity 0.15s; }
 .posmap-seat:hover circle:first-of-type { opacity: 0.85; }
 .posmap-seat:focus-visible { outline: none; }
-.posmap-seat:focus-visible circle:first-of-type { stroke: var(--c-blue-text); stroke-width: 2.5; }
+.posmap-seat:focus-visible circle:first-of-type { stroke: var(--c-accent); stroke-width: 2.5; }
 .posmap-seat-label {
   font-family: var(--font-ui);
   font-size: 13px;
@@ -259,7 +257,7 @@
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
-.podds-seg-active { background: var(--c-blue-grad); color: #fff; }
+.podds-seg-active { background: var(--c-accent-grad); color: var(--c-accent-ink); }
 .podds-bar {
   position: relative;
   height: 14px;
@@ -333,18 +331,17 @@
   align-items: center;
   gap: 10px;
   padding: 16px 12px;
-  border-radius: var(--r-plate);
-  background: var(--c-surface-sunken);
-  border: 2px solid var(--c-border-2);
+  border-radius: var(--r-choice);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border-2);
   cursor: pointer;
   font-family: var(--font-ui);
   color: var(--c-text);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 .tapquiz-option:hover:not(:disabled) {
-  border-color: var(--c-blue);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(0, 110, 253, 0.18);
+  border-color: var(--c-accent);
+  transform: translateY(-3px);
 }
 .tapquiz-option:disabled { cursor: default; }
 .tapquiz-option-correct {
@@ -381,9 +378,9 @@
   border: none;
   background: none;
   padding: 0;
-  color: var(--c-blue-text);
+  color: var(--c-accent);
   font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }

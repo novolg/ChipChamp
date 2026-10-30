@@ -80,7 +80,7 @@ const FOUR_COLOR_SUIT: Record<Suit, number> = {
 
 const CARD_INK = 0x16181d; // --c-card-ink
 const CARD_RED = 0xd12f43; // --c-card-red
-const CARD_PAPER = 0xf7f9fc; // --c-card-paper, flattened (source is a subtle gradient)
+const CARD_PAPER = 0xf6efe2; // --c-card-paper (warm ivory, indigo look), flattened
 
 function suitColor(suit: Suit, fourColor: boolean): number {
   if (fourColor) return FOUR_COLOR_SUIT[suit];

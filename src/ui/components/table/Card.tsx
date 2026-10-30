@@ -1,5 +1,6 @@
 import type { Card as CardType, Suit } from '../../../engine/types';
 import { rankLabel } from '../../../engine/evaluator';
+import { cardLabel } from '../../lib/cardLabel';
 
 const SUIT_SYMBOL: Record<Suit, string> = { c: '♣', d: '♦', h: '♥', s: '♠' };
 const RED: Suit[] = ['d', 'h'];
@@ -20,7 +21,7 @@ export function PlayingCard({ card, faceDown, highlight, size = 'md', dealDelay 
   const style = dealDelay ? { animationDelay: `${dealDelay}s` } : undefined;
   if (faceDown || !card) {
     return (
-      <div className={`pcard pcard-${size} pcard-back`} style={style} aria-label="face-down card">
+      <div className={`pcard pcard-${size} pcard-back`} style={style} role="img" aria-label="face-down card">
         <img src="/assets/card-back.png" alt="" />
       </div>
     );
@@ -30,7 +31,8 @@ export function PlayingCard({ card, faceDown, highlight, size = 'md', dealDelay 
     <div
       className={`pcard pcard-${size} ${red ? 'pcard-red' : 'pcard-ink'} ${highlight ? 'pcard-highlight' : ''}`}
       style={style}
-      aria-label={`${rankLabel(card.rank)} of ${card.suit}`}
+      role="img"
+      aria-label={cardLabel(card)}
     >
       <span className="pcard-rank">{rankLabel(card.rank)}</span>
       <span className="pcard-suit">{SUIT_SYMBOL[card.suit]}</span>

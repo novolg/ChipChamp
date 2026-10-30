@@ -1,38 +1,53 @@
-/* ChipChamp v2 design tokens — chunky/tactile body + electric navy table.
+/* ChipChamp v3 design tokens — Midnight Indigo: chunky/tactile body, indigo felt,
+   titanium rails, warm amber primary (target: output/imagegen/chipchamp-dark-variants/01-midnight-indigo.png).
    Single source of truth for the redesign (see design_handoff README). */
 :root {
   /* ---- Surfaces ---- */
-  --c-bg: #0d0d14; /* page, behind the canvas field */
-  --c-surface: #14141e; /* learn screen frame */
-  --c-surface-table: #12121c; /* table screen frame */
-  --c-surface-2: #1d1d2a; /* raised: cards, panels, seat plates, action bar */
-  --c-surface-sunken: #14141e; /* stat tiles, slider track, stepper */
-  --c-sunken-edge: #0a0a12; /* inset top edge on sunken elements */
-  --c-scrim: rgba(6, 6, 12, 0.72); /* modal backdrop overlay */
+  --c-bg: #0a0d1c; /* page, behind the canvas field */
+  --c-surface: #101529; /* learn screen frame */
+  --c-surface-table: #101529; /* table screen frame */
+  --c-surface-2: #182042; /* raised: cards, panels, seat plates, action bar */
+  --c-surface-sunken: #0d1226; /* stat tiles, slider track, stepper */
+  --c-sunken-edge: #070a17; /* inset top edge on sunken elements */
+  --c-scrim: rgba(5, 7, 16, 0.74); /* modal backdrop overlay */
 
   /* ---- Borders / hairlines ---- */
-  --c-border: #23232f;
-  --c-border-2: #2a2a38;
-  --c-line: #1f2130;
+  --c-border: #232b52;
+  --c-border-2: #2c3663;
+  --c-line: #1e2547;
 
   /* ---- Text ---- */
   --c-text: #e8eaf0;
-  --c-text-2: #b9bbcb;
-  --c-text-3: #a8aebf;
-  --c-text-muted: #8e90a6;
-  --c-text-faint: #6f7186;
+  --c-text-2: #bcc2dd;
+  --c-text-3: #a9b0cf;
+  --c-text-muted: #8d94b8;
+  --c-text-faint: #6c7399;
 
   /* ---- Brand blue ---- */
-  --c-blue: #006efd;
-  --c-blue-grad: linear-gradient(180deg, #3088ff 0%, #006efd 52%, #0052cc 100%);
-  --c-blue-edge: #0048b0;
-  --c-blue-text: #3b8fff;
+  --c-blue: #1e8bff;
+  --c-blue-grad: linear-gradient(180deg, #4fb0ff 0%, #1e8bff 52%, #0f62d6 100%);
+  --c-blue-edge: #0b4aa8;
+  --c-blue-text: #5aa8ff;
 
   /* ---- Orange ---- */
-  --c-orange: #ffa502;
-  --c-orange-grad: linear-gradient(180deg, #ff9d24 0%, #f07c00 55%, #c25e00 100%);
-  --c-orange-edge: #b87500;
-  --c-orange-hi: #ffd166; /* numeric highlights */
+  --c-orange: #ffb64d;
+  --c-orange-grad: linear-gradient(180deg, #ffcf7a 0%, #ffb64d 48%, #f09a22 100%);
+  --c-orange-edge: #a8650c;
+  --c-orange-hi: #ffc861; /* numeric highlights */
+
+  /* ---- Club look (the lobby's skin, shared by every screen) ----
+     UI accent = amber. Blue stays only for the hero's own actions
+     (CHECK/CALL, your-turn spotlight) — the hero-blue / bot-orange convention. */
+  --c-accent: var(--c-orange);
+  --c-accent-grad: var(--c-orange-grad);
+  --c-accent-ink: #1d1407; /* text on an amber fill */
+  --c-accent-soft: rgba(255, 182, 77, 0.07);
+  --sh-accent: 0 4px 12px rgba(255, 182, 77, 0.35);
+  --panel-bg: linear-gradient(115deg, #1e274a, #141a33);
+  --panel-bg-deep: radial-gradient(ellipse at 95% 100%, #343663 0%, transparent 65%), var(--c-surface-sunken);
+  --panel-border: 1px solid var(--c-border-2);
+  --r-club: 18px;
+  --r-choice: 10px;
 
   /* ---- Red ---- */
   --c-red: #ff4757;
@@ -40,22 +55,22 @@
   --c-red-edge: #b22230;
 
   /* ---- Green ---- */
-  --c-green: #2ed573;
+  --c-green: #4be08a;
   --c-green-edge: #1b7a44;
 
   /* ---- Neutral (dark) gradient button / inactive pill ---- */
-  --c-dark-grad: linear-gradient(180deg, #2b2b3a 0%, #1f1f2b 100%);
+  --c-dark-grad: linear-gradient(180deg, #2a3358 0%, #1b2242 100%);
 
   /* ---- Press state (universal button :active inversion) ---- */
   --c-press-bg: #eef1f8;
   --c-press-text: #14141e;
 
   /* ---- Felt ---- */
-  --c-felt: radial-gradient(ellipse at 50% 32%, #1a3a78 0%, #142c5c 48%, #0c1b3a 100%);
-  --c-felt-rail: #18233e;
+  --c-felt: radial-gradient(ellipse at 50% 32%, #33366a 0%, #25274b 48%, #15162e 100%);
+  --c-felt-rail: #4a5168;
 
   /* ---- Card paper ---- */
-  --c-card-paper: linear-gradient(157deg, #ffffff 0%, #f5f7fb 62%, #e7ecf3 100%);
+  --c-card-paper: linear-gradient(157deg, #fffaf1 0%, #f6efe2 62%, #e9dfcd 100%);
   --c-card-ink: #16181d;
   --c-card-red: #d12f43;
 
@@ -69,14 +84,14 @@
   --r-pill: 99px;
 
   /* ---- Shadows ---- */
-  --sh-panel: 0 5px 0 #101018, inset 0 1px 0 rgba(255, 255, 255, 0.04),
+  --sh-panel: 0 5px 0 #070a17, inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 16px 34px rgba(0, 0, 0, 0.35);
-  --sh-plate: 0 4px 0 #101018, inset 0 1px 0 rgba(255, 255, 255, 0.04),
+  --sh-plate: 0 4px 0 #070a17, inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 20px rgba(0, 0, 0, 0.35);
   --sh-sunken: inset 0 2px 0 var(--c-sunken-edge);
   --sh-screen: 0 24px 70px rgba(0, 0, 0, 0.5);
-  --sh-btn-blue: 0 10px 22px rgba(0, 110, 253, 0.3);
-  --sh-btn-orange: 0 10px 22px rgba(255, 159, 0, 0.3);
+  --sh-btn-blue: 0 10px 22px rgba(30, 139, 255, 0.3);
+  --sh-btn-orange: 0 10px 22px rgba(255, 182, 77, 0.3);
   --sh-btn-red: 0 10px 22px rgba(242, 57, 78, 0.3);
 
   /* ---- Texture: faint grid on screen surfaces ---- */

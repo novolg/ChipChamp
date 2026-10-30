@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sound Lab</title>
+<style>
+  :root { --bg: #0d1024; --card: #171b38; --text: #eef0fa; --muted: #9aa0c3; --accent: #ffb64d; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; padding: 24px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p { color: var(--muted); margin: 0 0 20px; }
+  section { margin-bottom: 24px; }
+  h2 { font-size: 13px; letter-spacing: .12em; color: var(--accent); margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  button { background: var(--card); color: var(--text); border: 1px solid #2a3060; border-radius: 10px; padding: 12px 10px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .seq { background: #2a2140; }
+</style>
+</head>
+<body>
+<h1>ChipChamp Sound Lab</h1>
+<p>Dev-only page (not in the build). Click to hear each cue through the real mixer. Samples load after the first click.</p>
+<section><h2>TABLE ACTIONS</h2><div class="grid" id="table"></div></section>
+<section><h2>CARDS &amp; CHIPS (RECORDED)</h2><div class="grid" id="foley"></div></section>
+<section><h2>REWARDS &amp; UI</h2><div class="grid" id="ui"></div></section>
+<section><h2>SEQUENCES</h2><div class="grid" id="seq"></div></section>
+<script type="module">
+  import { playCue } from '/src/audio/index.ts';
+  const groups = {
+    table: ['check', 'call', 'bet', 'raise', 'allin', 'fold', 'yourTurn'],
+    foley: ['shuffle', 'dealWhoosh', 'cardSlide', 'cardFlip', 'cardThump', 'chipClink', 'chipStackS', 'chipStackM', 'chipStackL', 'chipSplash', 'potPour', 'feltThud', 'buttonClack'],
+    ui: ['win', 'lose', 'levelUp', 'star', 'click', 'chipTick', 'lock', 'incorrect'],
+  };
+  for (const [id, names] of Object.entries(groups)) {
+    const host = document.getElementById(id);
+    for (const n of names) {
+      const b = document.createElement('button');
+      b.textContent = n;
+      b.onclick = () => playCue(n);
+      host.append(b);
+    }
+  }
+  const seqs = {
+    'Win: small → monster': [[0, 'win', 0], [1400, 'win', 1], [2800, 'win', 2], [4200, 'win', 4]],
+    'All-in into a win': [[0, 'allin'], [1600, 'cardFlip'], [2600, 'cardFlip'], [3600, 'win', 2], [4020, 'chipClink'], [4090, 'chipClink'], [4160, 'chipClink']],
+    'Street: flop': [[0, 'cardSlide'], [120, 'cardFlip'], [240, 'cardFlip'], [360, 'cardFlip']],
+  };
+  // Same cue 6× in a row — hear the per-hit variation.
+  for (const cue of ['check', 'call', 'bet', 'raise', 'fold', 'chipClink', 'click']) {
+    seqs[`${cue} ×6`] = Array.from({ length: 6 }, (_, i) => [i * 650, cue]);
+  }
+  for (const [label, steps] of Object.entries(seqs)) {
+    const b = document.createElement('button');
+    b.className = 'seq';
+    b.textContent = label;
+    b.onclick = () => steps.forEach(([at, cue, semi]) => setTimeout(() => playCue(cue, { semitones: semi }), at));
+    document.getElementById('seq').append(b);
+  }
+
+  // Offline loudness check (used from the console / CDP): dry voice peak + RMS.
+  // Loudest of `runs` random renders per cue (variation must never spike).
+  window.measureMax = async (runs = 12) => {
+    const all = await Promise.all(Array.from({ length: runs }, () => window.measure()));
+    return Object.fromEntries(Object.keys(all[0]).map((n) => [n, Math.max(...all.map((r) => r[n].peak))]));
+  };
+  window.measure = async () => {
+    const m = await import('/src/audio/synth.ts');
+    const out = {};
+    for (const n of m.SYNTH_NAMES) {
+      const ctx = new OfflineAudioContext(1, 48000 * 2, 48000);
+      m.renderVoice(n, { ctx, dest: ctx.destination });
+      const buf = await ctx.startRendering();
+      const d = buf.getChannelData(0);
+      let peak = 0, sum = 0, cnt = 0;
+      for (const v of d) { peak = Math.max(peak, Math.abs(v)); if (Math.abs(v) > 0.003) { sum += v * v; cnt++; } }
+      out[n] = { peak: +peak.toFixed(3), rms: +Math.sqrt(sum / Math.max(1, cnt)).toFixed(3), len: +(cnt / 48000).toFixed(2) };
+    }
+    return out;
+  };
+</script>
+</body>
+</html>

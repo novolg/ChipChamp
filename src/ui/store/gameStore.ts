@@ -11,6 +11,9 @@ import { decide } from '../../bot/policy';
 import { BOT_PRESETS, type BotConfig } from '../../bot/botConstants';
 import { useSettingsStore } from './settingsStore';
 import { RITUAL_MS } from '../../feel/recipes';
+import { beginSession, loadSession, saveSession } from './gameSession';
+import { useProgressStore } from './progressStore';
+import { reviewDecision, type DecisionReview } from '../../tutorial/decisionReview';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -26,10 +29,17 @@ export const DEAL_RITUAL_MS = RITUAL_MS;
 
 export interface GameStore {
   game: GameState | null;
+  decisionReview: DecisionReview | null;
   difficulty: Difficulty;
   /** True while a bot's scheduled action is pending. */
   botThinking: boolean;
-  newGame: (difficulty?: Difficulty) => void;
+  sessionSaved: boolean;
+  pause: () => void;
+  resume: () => void;
+  setSettingsPaused: (paused: boolean) => void;
+  hasTableControl: boolean;
+  setTableControl: (active: boolean) => void;
+  newGame: (difficulty?: Difficulty, opponent?: string) => void;
   dealHand: () => void;
   playerAction: (action: Action) => void;
 }
@@ -65,9 +75,34 @@ function botConfigFor(difficulty: Difficulty): BotConfig {
 }
 
 export const useGameStore = create<GameStore>((set, get) => {
+  const restored = loadSession();
+  let session = restored?.session ?? null;
+  let paused = Boolean(restored);
+  let settingsPaused = false;
+  function persist(game: GameState): void {
+    if (!session || !get().hasTableControl) return;
+    // Write the completed hand before its statistics. A crash between writes
+    // replays this journal; the progress receipt makes that replay idempotent.
+    const journalSaved = saveSession(session);
+    if (game.phase === 'handComplete' && !session.recorded) {
+      const hero = game.seats.find((s) => s.isHuman)!;
+      const start = session.table.seats.find((s) => s.isHuman)!.stack;
+      const completedSession = session;
+      const result = useProgressStore.getState().record({ type: 'freePlayHand', netChips: hero.stack - start, handId: JSON.stringify([session.table, session.handNumber]) });
+      if (typeof result === 'boolean') session.recorded = result;
+      else void result.then((saved) => {
+        // A completed write must not overwrite a newer hand or a new tab owner.
+        if (session !== completedSession || !get().hasTableControl) return;
+        completedSession.recorded = saved;
+        set({ sessionSaved: saveSession(completedSession) && journalSaved && saved });
+      });
+    }
+    set({ sessionSaved: saveSession(session) && journalSaved && (game.phase !== 'handComplete' || session.recorded) });
+  }
   /** If it's a bot's turn, schedule its action; recurse until a human acts. */
   function scheduleBots(): void {
     clearBotTimer();
+    if (paused || settingsPaused || !get().hasTableControl) return;
     const { game } = get();
     if (!game || game.phase !== 'betting' || game.toActSeatId === null) return;
     const seat = game.seats.find((s) => s.id === game.toActSeatId);
@@ -93,17 +128,42 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
       const action = decide(current, actingSeatId, botConfigFor(get().difficulty));
       const next = applyAction(current, action);
+      session?.actions.push(action);
       set({ game: next, botThinking: false });
+      persist(next);
       scheduleBots();
     }, delay);
   }
 
   return {
-    game: null,
-    difficulty: 'medium',
+    game: restored?.game ?? null,
+    decisionReview: restored?.review ?? null,
+    difficulty: restored?.session.difficulty ?? 'medium',
     botThinking: false,
+    sessionSaved: true,
+    hasTableControl: typeof navigator === 'undefined' || !navigator.locks,
+    setTableControl: (active) => {
+      clearBotTimer();
+      if (active && !get().hasTableControl) {
+        const latest = loadSession();
+        session = latest?.session ?? null;
+        set({ game: latest?.game ?? null, difficulty: latest?.session.difficulty ?? get().difficulty, decisionReview: latest?.review ?? null });
+        useProgressStore.getState().refresh();
+      }
+      set({ hasTableControl: active, botThinking: false });
+      if (active) scheduleBots();
+    },
+    setSettingsPaused: (value) => {
+      settingsPaused = value;
+      clearBotTimer();
+      set({ botThinking: false });
+      scheduleBots();
+    },
+    pause: () => { paused = true; clearBotTimer(); set({ botThinking: false }); },
+    resume: () => { paused = false; if (get().game) persist(get().game!); scheduleBots(); },
 
-    newGame: (difficulty) => {
+    newGame: (difficulty, opponent) => {
+      if (!get().hasTableControl) return;
       clearBotTimer();
       const diff = difficulty ?? get().difficulty;
       // Fresh games must vary: the engine is a deterministic seeded PRNG, so a
@@ -111,30 +171,41 @@ export const useGameStore = create<GameStore>((set, get) => {
       // NEW GAME would deal an identical board every time). Draw entropy here in
       // the UI layer — engine modules stay Math.random-free.
       const seed = (Math.floor(Math.random() * 0xffffffff) | 0) || 1;
-      const table = createTable({ ...DEFAULT_TABLE, seed });
-      set({ game: startHand(table, { buttonSeatId: DEFAULT_TABLE.buttonSeatId }), difficulty: diff, botThinking: false });
+      // A named rival starts a heads-up practice table; default remains four seats.
+      const rival = DEFAULT_TABLE.seats.find((s) => !s.isHuman && s.name === opponent);
+      const seats = rival ? [DEFAULT_TABLE.seats[0], rival] : DEFAULT_TABLE.seats;
+      const table = createTable({ ...DEFAULT_TABLE, seats, seed });
+      paused = false;
+      session = beginSession(table, diff);
+      set({ game: startHand(table, { buttonSeatId: DEFAULT_TABLE.buttonSeatId }), difficulty: diff, botThinking: false, decisionReview: null });
+      persist(get().game!);
       scheduleBots();
     },
 
     dealHand: () => {
-      clearBotTimer();
+      if (!get().hasTableControl) return;
       const { game } = get();
-      if (!game) return;
+      if (!game || game.phase !== 'handComplete') return;
+      clearBotTimer();
       // Drop busted players, rotate the button, deal the next hand.
       const rotated = rotateButton(game);
       const withChips = rotated.seats.filter((s) => s.stack > 0);
       if (withChips.length < 2) return;
-      set({ game: startHand(rotated), botThinking: false });
+      session = beginSession(rotated, get().difficulty);
+      set({ game: startHand(rotated), botThinking: false, decisionReview: null });
+      persist(get().game!);
       scheduleBots();
     },
 
     playerAction: (action) => {
       const { game } = get();
-      if (!game || game.toActSeatId === null) return;
+      if (paused || settingsPaused || !get().hasTableControl || !game || game.toActSeatId === null) return;
       const seat = game.seats.find((s) => s.id === game.toActSeatId);
       if (!seat || !seat.isHuman) return;
       const next = applyAction(game, action);
-      set({ game: next });
+      session?.actions.push(action);
+      set({ game: next, decisionReview: reviewDecision(game, action) });
+      persist(next);
       scheduleBots();
     },
   };

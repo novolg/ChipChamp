@@ -1,5 +1,7 @@
 // Core domain types for the poker engine. Pure data — no UI, no React.
 
+import type { HandRank } from './evaluator';
+
 export type Suit = 'c' | 'd' | 'h' | 's';
 
 /** Rank value. 2..10 face value; 11=J, 12=Q, 13=K, 14=A. Ace is high here;
@@ -68,6 +70,23 @@ export interface HandLogEntry {
   note?: string;
 }
 
+/** One pot share paid at hand end (split pots → one entry per winner). */
+export interface Payout {
+  seatId: number;
+  amount: number;
+  /** 0 = main pot, then side pots in order. */
+  potIndex: number;
+}
+
+/** How the hand ended — the UI reads this instead of parsing log text. */
+export interface HandResult {
+  /** Everyone else folded; no cards were shown. */
+  uncontested: boolean;
+  payouts: Payout[];
+  /** Best hand of every seat that reached showdown (empty when uncontested). */
+  shown: { seatId: number; rank: HandRank }[];
+}
+
 export interface GameState {
   seats: Seat[];
   buttonSeatId: number;
@@ -92,4 +111,7 @@ export interface GameState {
   handNumber: number;
   log: HandLogEntry[];
   phase: EnginePhase;
+  /** Set when the hand completes; null while a hand is live. Optional so
+   *  hand-built test fixtures need not carry it. */
+  result?: HandResult | null;
 }

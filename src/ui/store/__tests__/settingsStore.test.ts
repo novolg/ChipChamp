@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const engineMocks = vi.hoisted(() => ({ setBusVolume: vi.fn() }));
-vi.mock('../../../audio/engine', () => ({ setBusVolume: engineMocks.setBusVolume }));
+// Exercise the real engine state: volume setters work before an AudioContext
+// exists, so these checks need neither audio hardware nor module mocks.
+import { getBusVolume, setBusVolume } from '../../../audio/engine';
 
 import {
   DEFAULT_SETTINGS,
@@ -156,8 +157,8 @@ describe('prefersReducedMotion', () => {
 
 describe('useSettingsStore', () => {
   beforeEach(() => {
-    engineMocks.setBusVolume.mockClear();
     useSettingsStore.setState({ settings: DEFAULT_SETTINGS });
+    for (const bus of Object.keys(DEFAULT_SETTINGS.volumes) as (keyof Settings['volumes'])[]) setBusVolume(bus, 0.11);
   });
 
   afterEach(() => {
@@ -183,14 +184,14 @@ describe('useSettingsStore', () => {
     expect(persisted.settings.fourColorDeck).toBe(true);
   });
 
-  it('setVolume clamps to [0,1] and calls setBusVolume with the clamped value', () => {
+  it('setVolume clamps to [0,1] and applies the clamped value to the real audio engine', () => {
     useSettingsStore.getState().setVolume('music', 1.5);
     expect(useSettingsStore.getState().settings.volumes.music).toBe(1);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('music', 1);
+    expect(getBusVolume('music')).toBe(1);
 
     useSettingsStore.getState().setVolume('sfx', -1);
     expect(useSettingsStore.getState().settings.volumes.sfx).toBe(0);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('sfx', 0);
+    expect(getBusVolume('sfx')).toBe(0);
   });
 
   it('setVolume with NaN never persists or forwards NaN (keeps current value)', () => {
@@ -200,7 +201,7 @@ describe('useSettingsStore', () => {
     useSettingsStore.getState().setVolume('master', NaN);
 
     expect(useSettingsStore.getState().settings.volumes.master).toBe(1);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('master', 1);
+    expect(getBusVolume('master')).toBe(1);
     const persisted = JSON.parse(storage.data['cc.settings.v1']);
     expect(persisted.settings.volumes.master).toBe(1);
   });
@@ -222,7 +223,6 @@ describe('boot-time volume application to the audio engine (Finding 1)', () => {
   });
 
   it('pushes every persisted bus volume into the engine when the store module initializes', async () => {
-    engineMocks.setBusVolume.mockClear();
     const storage = fakeStorage({
       'cc.settings.v1': JSON.stringify({
         version: 1,
@@ -232,26 +232,35 @@ describe('boot-time volume application to the audio engine (Finding 1)', () => {
     vi.stubGlobal('localStorage', storage);
     vi.resetModules();
 
+    const { getBusVolume, setBusVolume } = await import('../../../audio/engine');
+    // Start every bus at a distinct value so a missing boot sync cannot pass.
+    for (const bus of Object.keys(DEFAULT_SETTINGS.volumes) as (keyof Settings['volumes'])[]) {
+      setBusVolume(bus, 0.11);
+    }
     await import('../settingsStore');
 
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('master', 0.5);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('sfx', 0.2);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ui', 0.3);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ambience', 0.4);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('music', 0.6);
+    expect(getBusVolume('master')).toBe(0.5);
+    expect(getBusVolume('sfx')).toBe(0.2);
+    expect(getBusVolume('ui')).toBe(0.3);
+    expect(getBusVolume('ambience')).toBe(0.4);
+    expect(getBusVolume('music')).toBe(0.6);
   });
 
   it('pushes the defaults into the engine when nothing is persisted yet', async () => {
-    engineMocks.setBusVolume.mockClear();
     vi.stubGlobal('localStorage', fakeStorage());
     vi.resetModules();
 
+    const { getBusVolume, setBusVolume } = await import('../../../audio/engine');
+    // Start every bus at a distinct value so a missing boot sync cannot pass.
+    for (const bus of Object.keys(DEFAULT_SETTINGS.volumes) as (keyof Settings['volumes'])[]) {
+      setBusVolume(bus, 0.11);
+    }
     await import('../settingsStore');
 
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('master', 1);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('sfx', 1);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ui', 1);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('ambience', 0.8);
-    expect(engineMocks.setBusVolume).toHaveBeenCalledWith('music', 0.8);
+    expect(getBusVolume('master')).toBe(1);
+    expect(getBusVolume('sfx')).toBe(1);
+    expect(getBusVolume('ui')).toBe(1);
+    expect(getBusVolume('ambience')).toBe(0.8);
+    expect(getBusVolume('music')).toBe(0.8);
   });
 });

@@ -1,13 +1,16 @@
 import { useLayoutEffect, useState } from 'react';
 
 /** Design size of the frame canvas (must match .frame in screens.css). */
-const W = 1240;
-const H = 880;
-const MARGIN = 12;
+const W = 1440;
+const H = 900;
+const MARGIN = 0;
+/** Big screens upscale a little so the table fills the window (indigo look is
+ *  edge-to-edge); the Pixi canvas re-rasterises at the scaled resolution. */
+const MAX_SCALE = 1.3;
 
 /**
- * Uniform scale factor that fits the fixed 1240x880 frame inside the viewport
- * (capped at 1 — never upscales). App.tsx feeds it to `.frame` via the
+ * Uniform scale factor that fits the fixed 1440x900 frame inside the viewport
+ * (capped at MAX_SCALE). App.tsx feeds it to `.frame` via the
  * `--fit-scale` custom property on `.app-stage`.
  *
  * Browsers hit-test through CSS transforms natively, so buttons and the native
@@ -21,7 +24,7 @@ export function useFitScale(): number {
     const update = () => {
       const vw = document.documentElement.clientWidth - MARGIN * 2;
       const vh = document.documentElement.clientHeight - MARGIN * 2;
-      setScale(Math.min(1, Math.round((vw / W) * 1000) / 1000, Math.round((vh / H) * 1000) / 1000));
+      setScale(Math.min(MAX_SCALE, Math.round((vw / W) * 1000) / 1000, Math.round((vh / H) * 1000) / 1000));
     };
     update();
     window.addEventListener('resize', update);

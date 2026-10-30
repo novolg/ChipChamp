@@ -483,10 +483,12 @@
 .link-back {
   background: none;
   border: none;
-  color: var(--c-blue-text);
+  color: var(--c-accent);
   cursor: pointer;
-  font-size: 14px;
+  font-family: var(--font-ui);
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.5px;
   padding: 0 0 var(--sp-3);
 }
 
@@ -542,10 +544,9 @@
   animation: chip-spin 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
 }
 .celebrate-title {
-  font-size: 24px;
-  font-weight: 900;
-  font-style: italic;
-  letter-spacing: 1px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   color: var(--c-orange-hi);
   text-shadow: 0 0 20px rgba(255, 209, 102, 0.5);
 }
@@ -560,13 +561,14 @@
   display: flex;
   align-items: flex-start;
   gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-plate);
-  background: var(--c-surface-2);
-  border-left: 3px solid var(--c-blue);
+  padding: 14px 18px;
+  border-radius: var(--r-choice);
+  background: var(--panel-bg);
+  border: var(--panel-border);
+  border-left: 3px solid var(--c-accent); /* tip = amber accent, warning = red */
   line-height: 1.5;
 }
-.callout-warning { border-left-color: var(--c-orange); }
+.callout-warning { border-left-color: var(--c-red); }
 .callout-badge {
   flex: none;
   width: 22px;
@@ -579,10 +581,10 @@
   font-weight: 700;
   font-style: normal;
   line-height: 1;
-  color: var(--c-press-text);
-  background: var(--c-blue);
+  color: var(--c-accent-ink);
+  background: var(--c-accent);
 }
-.callout-warning .callout-badge { background: var(--c-orange); }
+.callout-warning .callout-badge { background: var(--c-red); color: #fff; }
 .card-example { margin: var(--sp-2) 0; }
 .card-example-cards { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .card-example figcaption { color: var(--c-text-2); font-size: 13px; }
@@ -602,14 +604,14 @@
   cursor: pointer;
   transition: background 0.12s;
 }
-.rank-row:hover { background: rgba(0, 110, 253, 0.08); }
+.rank-row:hover { background: var(--c-surface-2); }
 .rank-row-active {
-  background: rgba(0, 110, 253, 0.14);
-  box-shadow: inset 3px 0 0 var(--c-blue);
+  background: var(--c-accent-soft);
+  box-shadow: inset 2px 0 0 var(--c-accent);
 }
 .rank-row-chevron {
   width: 16px;
-  color: var(--c-blue-text);
+  color: var(--c-accent);
   opacity: 0;
   transform: translateX(-4px);
   transition: transform var(--t-hover) var(--ease-snap), opacity var(--t-hover);
@@ -627,10 +629,9 @@
   align-items: center;
   gap: 8px;
   padding: 16px 12px;
-  border-radius: var(--r-panel);
-  background: var(--c-surface-2);
-  border: 1px solid var(--c-border);
-  box-shadow: var(--sh-plate);
+  border-radius: var(--r-club);
+  background: var(--panel-bg);
+  border: var(--panel-border);
   animation: pop-in 0.25s cubic-bezier(0.2, 1.3, 0.4, 1) backwards;
 }
 .rank-preview-cards { display: flex; gap: 4px; }
@@ -659,9 +660,9 @@
 }
 .quiz-progress-count {
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
-  color: var(--c-text-faint);
+  font-weight: 600;
+  letter-spacing: 1.7px;
+  color: var(--c-accent);
 }
 /* Streak badge — appears at 2+ correct in a row, glow escalates with length. */
 .quiz-streak {
@@ -671,8 +672,7 @@
   padding: 3px 10px;
   border-radius: var(--r-pill);
   font-size: 11px;
-  font-weight: 900;
-  font-style: italic;
+  font-weight: 600;
   letter-spacing: 0.5px;
   white-space: nowrap;
   color: var(--c-orange-hi);
@@ -700,8 +700,8 @@
   transition: background 0.2s, box-shadow 0.2s;
 }
 .quiz-dot-current {
-  background: var(--c-blue);
-  box-shadow: 0 0 10px rgba(0, 110, 253, 0.5);
+  background: var(--c-accent);
+  box-shadow: 0 0 10px rgba(255, 182, 77, 0.5);
   animation: dot-breathe 1.6s ease-in-out infinite;
 }
 @keyframes dot-breathe {
@@ -720,8 +720,8 @@
   display: block;
   height: 100%;
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--c-blue), var(--c-blue-text));
-  box-shadow: 0 0 10px rgba(0, 110, 253, 0.5);
+  background: var(--c-accent);
+  box-shadow: 0 0 10px rgba(255, 182, 77, 0.4);
   transition: width 0.4s var(--ease-out);
 }
 .quiz-q { margin-bottom: var(--sp-6); }
@@ -733,15 +733,15 @@
   align-items: center;
   gap: var(--sp-3);
   text-align: left;
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: var(--c-surface-2);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-plate);
+  border: 1px solid var(--c-border-2);
+  border-radius: var(--r-choice);
   color: var(--c-text);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   font-family: var(--font-ui);
-  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
   /* Staggered reveal replays per question (quiz-q-card remounts via quiz-slide). */
   animation: option-in 0.3s var(--ease-out) backwards;
 }
@@ -763,12 +763,12 @@
   bottom: 10px;
   width: 3px;
   border-radius: 2px;
-  background: var(--c-blue);
+  background: var(--c-accent);
   transform: scaleY(0);
   transition: transform var(--t-hover) var(--ease-snap);
 }
 .quiz-option:hover:not(:disabled) {
-  border-color: var(--c-blue);
+  border-color: var(--c-accent);
   transform: translateX(3px);
 }
 .quiz-option:hover:not(:disabled)::before { transform: scaleY(1); }
@@ -790,8 +790,8 @@
 }
 .quiz-option:hover:not(:disabled) .quiz-option-key {
   transform: scale(1.15) rotate(-4deg);
-  background: var(--c-blue);
-  color: #fff;
+  background: var(--c-accent);
+  color: var(--c-accent-ink);
 }
 .quiz-option-correct { border-color: var(--c-green); background: rgba(46, 213, 115, 0.12); }
 .quiz-option-correct .quiz-option-key { background: var(--c-green); color: var(--c-press-text); }
@@ -914,10 +914,10 @@
   width: min(560px, 100%);
   max-height: 100%;
   overflow-y: auto;
-  background: var(--c-surface-2);
-  border: 1px solid var(--c-border-2);
-  border-radius: var(--r-panel);
-  box-shadow: var(--sh-panel);
+  background: var(--panel-bg);
+  border: var(--panel-border);
+  border-radius: var(--r-club);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   padding: var(--sp-6);
   color: var(--c-text);
 }
@@ -933,10 +933,8 @@
 .settings-modal-head h2 {
   margin: 0;
   font-family: var(--font-ui);
-  font-weight: 800;
-  font-style: italic;
-  font-size: 20px;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  font-size: 22px;
 }
 .settings-close {
   flex: none;
@@ -963,10 +961,10 @@
 .settings-section:last-child { margin-bottom: 0; }
 .settings-section-title {
   margin: 0 0 var(--sp-3);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: var(--c-text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.7px;
+  color: var(--c-accent);
   text-transform: uppercase;
 }
 .settings-row {
@@ -993,7 +991,7 @@
 .settings-slider {
   flex: 1;
   min-width: 0;
-  accent-color: var(--c-blue);
+  accent-color: var(--c-accent);
   height: 6px;
   border-radius: var(--r-pill);
   background: var(--c-surface-sunken);
@@ -1066,6 +1064,9 @@
      rules below) is trimmed just enough to make room, not for its own sake. */
   .hud { gap: 3px; }
   .hud-ring-wrap { width: 18px; height: 18px; }
+  /* The SVG carries width/height="28" attributes; pin it to the shrunk wrap
+     or it spills over the balance digits. */
+  .hud-ring { width: 100%; height: 100%; }
   .hud-ring-level { font-size: 8px; }
   .hud-ring-pulse { inset: -5px; }
   .hud-balance {
@@ -1086,6 +1087,9 @@
   /* Match the mobile seg width so the sliding thumb lands on PLAY (was the
      hardcoded desktop 108px → mismatch). 50px seg + 4px gap = 54px. */
   .nav-thumb[data-pos='free'] { transform: translateX(54px); }
+  /* 50px segs only fit one word: show "PLAY" (aria-label keeps "Free play"). */
+  .nav-seg { white-space: nowrap; }
+  .nav-seg-free-word { display: none; }
 
   /* Reclaim the desktop 32px body gutters — they crowd/clip the narrow felt
      and the learn/lesson columns. The play screen keeps its own .play-grid
@@ -1126,4 +1130,15 @@
   .settings-row { flex-wrap: wrap; }
   .settings-row-label { width: 100%; }
   .settings-row-value { order: 1; }
+}
+
+/* Narrow phones: the header row (logo + HUD + 2 icons + nav) is ~345px wide
+   at the 760px-block sizes — shrink the wordmark so the nav stays on screen. */
+@media (max-width: 400px) {
+  .frame-logo { height: 21px; }
+}
+@media (max-width: 340px) {
+  .frame-header { padding: 0 6px; }
+  .frame-logo { height: 16px; }
+  .frame-brand { gap: 4px; }
 }

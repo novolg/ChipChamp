@@ -1,6 +1,10 @@
 import type { GameState } from '../../../engine/types';
 import type { ActionType } from '../../../engine/types';
 import { advise } from '../../../advisor/advisor';
+import { BOT_ROLE } from '../table/BotPortrait';
+import { botIdFor } from '../table/BotFace';
+import { handSummary } from '../../lib/result';
+import { useGameStore } from '../../store/gameStore';
 
 interface CoachingRailProps {
   game: GameState;
@@ -21,9 +25,11 @@ const ACTION_BTN: Record<ActionType, string> = {
 };
 
 export function CoachingRail({ game, seatId, active, compact }: CoachingRailProps) {
+  const review = useGameStore((s) => s.game === game ? s.decisionReview : null);
   const seat = game.seats.find((s) => s.id === seatId);
   const canAdvise = active && seat && seat.holeCards.length === 2 && game.phase === 'betting';
   const advice = canAdvise ? advise(game, seatId) : null;
+  const recap = advice ? null : handSummary(game);
   const equityFill = advice ? Math.min(100, advice.equityEstimate * 100) : 0;
   const needMark = advice && advice.potOdds > 0 ? Math.min(100, advice.potOdds * 100) : null;
   // +EV when equity meets/exceeds the price; the gap is the [have↔need] band.
@@ -39,11 +45,17 @@ export function CoachingRail({ game, seatId, active, compact }: CoachingRailProp
         <span className={`coach-live${advice ? ' coach-live-on' : ''}`} aria-label="live coaching" />
       </div>
 
-      {!advice && (
+      {recap && (
+        <div className="coach-recap" key={game.handNumber}>
+          <span className="coach-recap-title">HAND RECAP</span>
+          <p className="coach-note">{recap}</p>
+        </div>
+      )}
+      {game.phase === 'handComplete' && review && <details className="coach-decision-review"><summary>Review your last decision</summary><p>{review.street.toUpperCase()}: you chose {review.played.toUpperCase()}. The coach suggested {review.suggested.toUpperCase()}.</p><p>{review.reasoning}</p><small>This is a beginner heuristic using information available at the time, not a verdict based on who won. Other plays may be reasonable.</small></details>}
+
+      {!advice && !recap && (
         <p className="coach-idle">
-          {game.phase === 'handComplete'
-            ? 'Hand complete. Deal the next hand to keep learning.'
-            : "Advice appears here when it's your turn."}
+          {game.phase === 'showdown' ? 'Showdown…' : "Advice appears here when it's your turn."}
         </p>
       )}
 
@@ -101,6 +113,21 @@ export function CoachingRail({ game, seatId, active, compact }: CoachingRailProp
           </div>
 
           <p className="coach-note">{advice.reasoning}</p>
+        </div>
+      )}
+
+      {!compact && (
+        <div className="coach-posse">
+          <span className="coach-posse-title">THE POSSE</span>
+          {game.seats.filter((s) => !s.isHuman).map((s) => (
+            <div
+              key={s.id}
+              className={`coach-posse-row${s.status === 'folded' || s.status === 'out' ? ' coach-posse-row-dim' : ''}${s.id === game.toActSeatId && game.phase === 'betting' ? ' coach-posse-row-acting' : ''}`}
+            >
+              <span className="coach-posse-name">{s.name} · {BOT_ROLE[botIdFor(s.name)]}</span>
+              <span className="coach-posse-stack">{s.stack.toLocaleString()}</span>
+            </div>
+          ))}
         </div>
       )}
     </aside>

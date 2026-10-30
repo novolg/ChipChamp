@@ -11,7 +11,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useNavStore } from '../store/navStore';
 import { useProgressStore } from '../store/progressStore';
 import { useGameStore, HERO_STARTING_STACK } from '../store/gameStore';
-import { useSettingsStore, prefersReducedMotion } from '../store/settingsStore';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useSettingsStore } from '../store/settingsStore';
 import { LEARNING_PATH } from '../../tutorial/content/learningPath';
 import { completedStepCount, learnerLevel, heroChipBalance } from '../lib/derive';
 import { useCountUp } from '../hooks/useCountUp';
@@ -19,6 +20,7 @@ import { useSound } from '../hooks/useSound';
 import { playSfx } from '../lib/sound';
 import { subscribe, isReady } from '../../scene/readyState';
 import { SettingsModal } from './SettingsModal';
+import { SaloonAmbience } from './SaloonAmbience';
 
 /* Session-scoped high-water mark of the step count we've already celebrated.
  * null until the first mount syncs it, so a page load never auto-fires the
@@ -105,7 +107,7 @@ interface AppFrameProps {
  *  step count) — the old per-chip burst is now a pulse around the ring. */
 function LevelRing() {
   const progress = useProgressStore((s) => s.progress);
-  const reducedMotion = useSettingsStore((s) => prefersReducedMotion(s.settings));
+  const reducedMotion = useReducedMotion();
   const done = completedStepCount(progress);
   const total = LEARNING_PATH.length;
   const level = learnerLevel(progress);
@@ -184,7 +186,7 @@ function LevelRing() {
  *  replays the CSS pop from scratch. */
 function ChipBalance() {
   const game = useGameStore((s) => s.game);
-  const reducedMotion = useSettingsStore((s) => prefersReducedMotion(s.settings));
+  const reducedMotion = useReducedMotion();
   const balance = heroChipBalance(game, HERO_STARTING_STACK);
   const shown = useCountUp(balance);
   const prevRef = useRef(balance);
@@ -293,7 +295,7 @@ function Splash() {
   const assetsReady = useSyncExternalStore(subscribe, isReady);
   const view = useNavStore((s) => s.view);
   const renderer = useSettingsStore((s) => s.settings.renderer);
-  const reducedMotion = useSettingsStore((s) => prefersReducedMotion(s.settings));
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!visible) return;
@@ -349,18 +351,38 @@ function Splash() {
  *  navigation. Also mounts the once-per-load branded splash (portaled out to
  *  `document.body` — see `Splash`'s doc comment). */
 export function AppFrame({ variant = 'learn', active, headerExtra, children }: AppFrameProps) {
+  const hasTableControl = useGameStore((s) => s.hasTableControl);
+  const progressSaved = useProgressStore((s) => s.saved);
+  const progressSaving = useProgressStore((s) => s.saving);
   const go = useNavStore((s) => s.go);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const gearRef = useRef<HTMLButtonElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
+
+  const focusContent = () => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const target = active === 'free' ? body : body.querySelector<HTMLElement>('h1, h2') ?? body;
+    target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+  };
+  useEffect(() => {
+    // Child exercises may establish a more specific initial focus of their own.
+    // Leave browser focus alone on the initial page load (especially touch).
+    if (!useNavStore.getState().hasNavigated) return;
+    if (!bodyRef.current?.contains(document.activeElement)) focusContent();
+  }, []);
 
   const closeSettings = () => {
     setSettingsOpen(false);
-    gearRef.current?.focus();
   };
 
   return (
     <div className={`frame frame-${variant}`}>
+      <button className="skip-content" onClick={focusContent}>Skip to content</button>
       <Splash />
+      {variant === 'table' && !reducedMotion && <SaloonAmbience />}
       <header className={`frame-header frame-header-${variant}`}>
         <div className="frame-brand">
           <img src="/assets/logo-wordmark.png" alt="ChipChamp" className="frame-logo" />
@@ -370,30 +392,30 @@ export function AppFrame({ variant = 'learn', active, headerExtra, children }: A
           <Hud />
           <SfxToggle />
           <SettingsToggle onOpen={() => setSettingsOpen(true)} buttonRef={gearRef} />
-          <nav className="nav-switch" role="tablist">
+          <nav className="nav-switch" aria-label="Main navigation">
             {/* Sliding active surface; segs are transparent on top of it. */}
             <span className="nav-thumb" data-pos={active} aria-hidden="true" />
             <button
-              role="tab"
-              aria-selected={active === 'learn'}
+              aria-current={active === 'learn' ? 'page' : undefined}
               className={`nav-seg${active === 'learn' ? ' nav-seg-active' : ''}`}
               onClick={() => go({ name: 'home' })}
             >
               LEARN
             </button>
             <button
-              role="tab"
-              aria-selected={active === 'free'}
+              aria-current={active === 'free' ? 'page' : undefined}
               className={`nav-seg${active === 'free' ? ' nav-seg-active' : ''}`}
               onClick={() => go({ name: 'free' })}
+              aria-label="Free play"
             >
-              PLAY
+              {/* "FREE " drops on phones so the pill fits one line (screens.css mobile block). */}
+              <span className="nav-seg-free-word">FREE </span>PLAY
             </button>
           </nav>
         </div>
       </header>
-      <div className="frame-body">{children}</div>
-      {settingsOpen && <SettingsModal onClose={closeSettings} />}
+      <div ref={bodyRef} className="frame-body" role="region" aria-label={active === 'free' ? 'Poker table' : 'Learning content'} tabIndex={-1}>{!hasTableControl && <p className="table-ownership-note" role="status">Your table is open in another tab. Close that tab to continue playing here. Lessons remain available.</p>}{!progressSaved && !progressSaving && <p className="table-ownership-note" role="status">Your latest progress couldn’t be saved. Keep this tab open; we’ll try again when you complete another activity.</p>}{children}</div>
+      {settingsOpen && <SettingsModal onClose={closeSettings} returnFocusRef={gearRef} />}
     </div>
   );
 }

@@ -123,7 +123,12 @@ export class PokerScene {
   private readonly envParallax = new Container();
   private readonly cards: SceneCards;
   /** The bet-stack actor per seat slot, plus the pot cluster. */
-  private readonly chips: { bets: Record<SeatSlot, ChipStackActor>; pot: ChipStackActor };
+  private readonly chips: {
+    bets: Record<SeatSlot, ChipStackActor>;
+    pot: ChipStackActor;
+    /** Each bot's own stack (`seat.stack`) beside its plate. */
+    stacks: Record<(typeof BOT_SLOTS)[number], ChipStackActor>;
+  };
   /** Shared motion getters (also handed to every ChipStackActor, incl. the
    *  transient sweep-ghosts created on demand). */
   private readonly motion: CardMotion;
@@ -168,6 +173,9 @@ export class PokerScene {
   ) {
     this.app = app;
     this.mode = mode;
+    this.app.ticker.maxFPS = mode === 'portrait' ? 30 : 60;
+    document.addEventListener('visibilitychange', this.onVisibility);
+    this.onVisibility();
     this.assets = assets;
     this.layers = {
       env: new Container({ label: 'env' }),
@@ -219,7 +227,9 @@ export class PokerScene {
     this.chips = {
       bets: { left: mkChip(), center: mkChip(), right: mkChip(), hero: mkChip() },
       pot: mkChip(),
+      stacks: { left: mkChip(), center: mkChip(), right: mkChip() },
     };
+    for (const slot of BOT_SLOTS) this.layers.fx.addChild(this.chips.stacks[slot].view);
     for (const slot of ALL_SLOTS) this.layers.fx.addChild(this.chips.bets[slot].view);
     this.layers.fx.addChild(this.chips.pot.view);
 
@@ -248,7 +258,7 @@ export class PokerScene {
       backgroundAlpha: 0,
       // 'reduced' tier drops antialiasing — the cheaper path per the recipe gate.
       antialias: tier === 'full',
-      resolution: Math.min(3, dpr),
+      resolution: Math.min(mode === 'portrait' ? 2 : 3, dpr),
       autoDensity: true,
       // Force WebGL: the tier decision is a WebGL capability probe, and WebGPU
       // init is comparatively flaky (esp. headless). Keeps paths predictable.
@@ -397,9 +407,11 @@ export class PokerScene {
     const betting = game.phase === 'betting';
     const hero = game.seats.find((s) => s.isHuman);
     const bots = game.seats.filter((s) => !s.isHuman);
+    const stacksShown = tableLayout(this.mode).stacks !== null;
     BOT_SLOTS.forEach((slot, i) => {
       const seat = bots[i];
       this.chips.bets[slot].place(betting && seat ? seat.committedThisStreet : 0);
+      this.chips.stacks[slot].place(stacksShown && seat ? seat.stack : 0);
     });
     this.chips.bets.hero.place(betting && hero ? hero.committedThisStreet : 0);
     // Sanctioned deviation from the brief's "pot cluster present when
@@ -593,7 +605,7 @@ export class PokerScene {
     if (!seat) return;
     const L = tableLayout(this.mode);
     const actor = this.chips.bets[slot];
-    actor.grow(seat.committedThisStreet, L.seats[slot]);
+    actor.grow(seat.committedThisStreet, L.hands[slot]);
     this.trackChipFx(actor);
   }
 
@@ -723,6 +735,10 @@ export class PokerScene {
     }
     this.chips.pot.resize(size);
     this.chips.pot.moveHome(L.pot);
+    for (const slot of BOT_SLOTS) {
+      this.chips.stacks[slot].resize(Math.round(size * 1.15)); // own stack reads a bit bigger than a bet
+      if (L.stacks) this.chips.stacks[slot].moveHome(L.stacks[slot]);
+    }
   }
 
   /** Kill every chip actor's in-flight tween (grow/sweep/push/bounce) and,
@@ -754,8 +770,13 @@ export class PokerScene {
   private resolutionFor(mode: LayoutMode): number {
     const dpr = typeof globalThis.devicePixelRatio === 'number' ? globalThis.devicePixelRatio : 1;
     const frameScale = mode === 'portrait' ? 1 : this.lastFitScale;
-    return Math.min(3, dpr * frameScale);
+    return Math.min(mode === 'portrait' ? 2 : 3, dpr * frameScale);
   }
+
+  private onVisibility = (): void => {
+    if (document.hidden) this.app.ticker.stop();
+    else this.app.ticker.start();
+  };
 
   /** Rebuild positions for a new layout mode (no cross-animation — hard swap).
    *  Any in-flight deal is dropped (its coordinates are now stale) and the cards
@@ -763,6 +784,7 @@ export class PokerScene {
   setMode(mode: LayoutMode): void {
     if (mode === this.mode) return;
     this.mode = mode;
+    this.app.ticker.maxFPS = mode === 'portrait' ? 30 : 60;
     this.anim?.kill();
     this.anim = null;
     this.killChipFx();
@@ -791,6 +813,7 @@ export class PokerScene {
    *  children. Shared textures stay in the Assets cache for reuse (texture:
    *  false) so a StrictMode remount doesn't re-download them. */
   destroy(): void {
+    document.removeEventListener('visibilitychange', this.onVisibility);
     this.app.canvas.removeEventListener('pointerdown', this.skip);
     this.app.canvas.removeEventListener('pointermove', this.onPointerMove);
     // Safe even when never attached (create() only adds it when the API

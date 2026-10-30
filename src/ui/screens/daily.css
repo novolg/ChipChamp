@@ -1,0 +1,29 @@
+.daily-page { max-width: 900px; margin: 0 auto; padding: 28px 36px 40px; }
+.daily-page header { margin: 24px 0; }
+.daily-page .best-five-table { padding-block: 18px; gap: 20px; }
+.daily-page h1 { font-size: 36px; margin: 10px 0; }
+.daily-page header p, .daily-note { color: var(--c-text-2); line-height: 1.6; }
+.daily-stats { display: flex; gap: 30px; padding: 18px 0; border-block: 1px solid #ffffff20; margin-bottom: 24px; }
+.daily-stats span { display: flex; align-items: baseline; gap: 8px; }
+.daily-stats strong { font-size: 26px; color: #ffc88a; }
+.daily-finish { padding: 35px; background: #ffffff08; border: 1px solid #ffffff20; border-radius: 18px; }
+.daily-finish > span { color: #b9edc7; font-size: 42px; }
+.daily-finish p { line-height: 1.7; max-width: 550px; }
+.daily-finish > div { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+.daily-note { font-size: 12px; margin-top: 20px; }
+.lobby-lab.lobby-daily { border-color: #ffc88a70; }
+@media (max-width: 760px) {
+  .daily-page { padding: 20px 16px 32px; }
+  .daily-page h1 { font-size: 27px; }
+  .daily-stats { gap: 16px; justify-content: space-between; }
+  .daily-stats span { flex-direction: column; gap: 3px; font-size: 12px; }
+  .daily-finish { padding: 24px 18px; }
+}
+@media (min-width: 761px) {
+  .daily-page { padding-top: 16px; }
+  .daily-page header { margin: 16px 0; }
+  .daily-page header p { margin-bottom: 12px; }
+  .daily-page .best-five-table { flex-direction: row; justify-content: space-around; }
+  .daily-page .best-five { padding: 22px; }
+  .daily-page .best-five-progress { margin-bottom: 16px; }
+}

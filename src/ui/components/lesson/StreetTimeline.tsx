@@ -96,7 +96,7 @@ export function StreetTimeline() {
           ← BACK
         </button>
         <button
-          className="btn btn-blue timeline-btn"
+          className="btn btn-orange timeline-btn"
           disabled={step === STEPS.length - 1}
           onClick={() => goStep(step + 1)}
         >
