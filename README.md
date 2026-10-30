@@ -14,7 +14,7 @@ A browser app that teaches **Texas Hold'em** to beginners and lets them practise
   <img src="docs/screenshots/lobby.jpg" alt="Club lobby: resume learning, pick an opponent, daily challenge" width="880" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/table.jpg" alt="Free play table on the flop with the coach panel" width="880" />
+  <img src="docs/screenshots/table.jpg" alt="Free play table with the coach panel" width="880" />
 </p>
 <p align="center">
   <img src="docs/screenshots/lesson.jpg" alt="Hand Rankings lesson: build your best five cards" width="434" />
