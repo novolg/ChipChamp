@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 const COLORS = ['#ffa502', '#006efd', '#ff4757', '#2ed573', '#ffd166'];
 
@@ -6,6 +7,8 @@ const COLORS = ['#ffa502', '#006efd', '#ff4757', '#2ed573', '#ffd166'];
  *  Parent must be position: relative (or fixed); pieces are pointer-transparent.
  *  Variation is index-derived so the burst is stable across re-renders. */
 export function Confetti({ count = 28 }: { count?: number }) {
+  const reduced = useReducedMotion();
+  if (reduced) return null;
   return (
     <div className="confetti" aria-hidden="true">
       {Array.from({ length: count }, (_, i) => {

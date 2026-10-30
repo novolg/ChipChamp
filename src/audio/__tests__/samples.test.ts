@@ -67,6 +67,17 @@ class FakeAudioContext {
     this.bufferSources.push(src);
     return src;
   }
+  // Master EQ + room reverb nodes built with the graph.
+  sampleRate = 44100;
+  createBiquadFilter(): FakeNode & { frequency: FakeParam; Q: FakeParam; gain: FakeParam; type: string } {
+    return Object.assign(new FakeNode(), { frequency: new FakeParam(), Q: new FakeParam(), gain: new FakeParam(), type: 'lowpass' });
+  }
+  createConvolver(): FakeNode & { buffer: unknown } {
+    return Object.assign(new FakeNode(), { buffer: null as unknown });
+  }
+  createBuffer(_channels: number, frames: number) {
+    return { getChannelData: () => new Float32Array(frames) };
+  }
 }
 
 function installFakeWindow(): void {
@@ -208,6 +219,35 @@ describe('loadSampleBank', () => {
   });
 });
 
+describe('live variation helpers', () => {
+  it('take() never repeats the previous take for a key', async () => {
+    const { take } = await import('../synth');
+    let prev = take('t-test', 3);
+    for (let i = 0; i < 200; i++) {
+      const next = take('t-test', 3);
+      expect(next).toBeGreaterThanOrEqual(0);
+      expect(next).toBeLessThan(3);
+      expect(next).not.toBe(prev);
+      prev = next;
+    }
+  });
+
+  it('penta() walks the C-major pentatonic from C5', async () => {
+    const { penta } = await import('../synth');
+    const semis = (f: number) => Math.round(12 * Math.log2(f / 523.25));
+    expect([0, 1, 2, 3, 4, 5, 6].map((i) => semis(penta(i)))).toEqual([0, 2, 4, 7, 9, 12, 14]);
+  });
+
+  it('jit() stays within ±amt', async () => {
+    const { jit } = await import('../synth');
+    for (let i = 0; i < 500; i++) {
+      const v = jit(100, 0.05);
+      expect(v).toBeGreaterThanOrEqual(95);
+      expect(v).toBeLessThanOrEqual(105);
+    }
+  });
+});
+
 describe('playCue sample playback', () => {
   it('plays a decoded buffer with jittered playbackRate on the cue bus once ready', async () => {
     const { samples, audio, engine } = await freshAudio();
@@ -224,7 +264,11 @@ describe('playCue sample playback', () => {
     expect(src.start).toHaveBeenCalled();
     expect(src.playbackRate.value).toBeGreaterThanOrEqual(0.96);
     expect(src.playbackRate.value).toBeLessThanOrEqual(1.04);
-    expect(src.connections).toEqual([api.bus('sfx')]);
+    // src → per-hit level jitter (±1.5 dB) → bus
+    const level = src.connections[0] as unknown as FakeGainNode;
+    expect(level.gain.value).toBeGreaterThanOrEqual(0.85);
+    expect(level.gain.value).toBeLessThanOrEqual(1.15);
+    expect(level.connections).toEqual([api.bus('sfx')]);
   });
 
   it('inserts a StereoPannerNode ahead of the bus when opts.pan is given', async () => {
@@ -239,7 +283,8 @@ describe('playCue sample playback', () => {
 
     const src = fakeCtx.bufferSources[0];
     expect(src.connections).toHaveLength(1);
-    const panner = src.connections[0] as unknown as FakeStereoPannerNode;
+    const level = src.connections[0];
+    const panner = level.connections[0] as unknown as FakeStereoPannerNode;
     expect(panner.pan.value).toBe(-0.5);
     expect(panner.connections).toEqual([api.bus('sfx')]);
   });

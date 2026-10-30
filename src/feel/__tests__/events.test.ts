@@ -182,25 +182,22 @@ describe('deriveFeelEvents', () => {
     expect(deriveFeelEvents(snap, snap)).toEqual([]);
   });
 
-  it('handComplete with "You wins N with <hand>" -> WIN{heroWon:true}', () => {
+  it('handComplete with a hero payout -> WIN{heroWon:true}', () => {
     const prev = gs({ phase: 'betting', log: [] });
     const next = gs({
       phase: 'handComplete',
-      log: [{ street: Street.Showdown, note: 'You wins 218 with Pair' }],
+      result: { uncontested: false, payouts: [{ seatId: 0, amount: 218, potIndex: 0 }], shown: [] },
     });
     expect(deriveFeelEvents(prev, next)).toEqual([
       { type: 'WIN', heroWon: true, amount: 218, winnerSlot: 'hero' },
     ]);
   });
 
-  it('split note double-entry sums the hero\'s multiple pot wins', () => {
+  it('sums the hero\'s payouts across pots', () => {
     const prev = gs({ phase: 'betting', log: [] });
     const next = gs({
       phase: 'handComplete',
-      log: [
-        { street: Street.Showdown, note: 'You wins 150 with Two Pair' },
-        { street: Street.Showdown, note: 'You wins 70 with Two Pair' },
-      ],
+      result: { uncontested: false, payouts: [{ seatId: 0, amount: 150, potIndex: 0 }, { seatId: 0, amount: 70, potIndex: 1 }], shown: [] },
     });
     expect(deriveFeelEvents(prev, next)).toEqual([
       { type: 'WIN', heroWon: true, amount: 220, winnerSlot: 'hero' },
@@ -211,7 +208,7 @@ describe('deriveFeelEvents', () => {
     const prev = gs({ phase: 'betting', log: [] });
     const next = gs({
       phase: 'handComplete',
-      log: [{ street: Street.Showdown, note: 'Ava wins 40' }],
+      result: { uncontested: false, payouts: [{ seatId: 1, amount: 40, potIndex: 0 }], shown: [] },
     });
     expect(deriveFeelEvents(prev, next)).toEqual([
       { type: 'WIN', heroWon: false, amount: 40, winnerSlot: 'left' },
@@ -231,7 +228,7 @@ describe('deriveFeelEvents', () => {
     });
     const next = gs({
       phase: 'handComplete',
-      log: [{ street: Street.Showdown, note: 'Ava wins 40' }],
+      result: { uncontested: false, payouts: [{ seatId: 1, amount: 40, potIndex: 0 }], shown: [] },
       seats: [
         seat(0, 'You', true, { stack: 0 }),
         seat(1, 'Ava', false, { stack: 840 }),
@@ -258,7 +255,7 @@ describe('deriveFeelEvents', () => {
     });
     const next = gs({
       phase: 'handComplete',
-      log: [{ street: Street.Showdown, note: 'You wins 40' }],
+      result: { uncontested: false, payouts: [{ seatId: 0, amount: 40, potIndex: 0 }], shown: [] },
       seats: [
         seat(0, 'You', true, { stack: 1040 }),
         seat(1, 'Ava', false),

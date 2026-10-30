@@ -41,14 +41,19 @@ function feltStyle(mode: LayoutMode): FeltStyle {
 }
 
 /* ---------------------------------------------------------------------------
- * Leather rail — base / stitch / brass / traveling glint.
+ * Titanium rail (Midnight Indigo look) — brushed-metal band lit from the top,
+ * dark inner lip, faint stitch ring, amber LED studs, traveling glint.
  * ------------------------------------------------------------------------- */
 
-const RAIL_W = 14; // band width beyond the felt edge, both layout modes
-const RAIL_BASE = 0x241b14; // leather-dark
-const RAIL_STITCH = 0x3a2e22;
-const RAIL_STITCH_INSET = 4; // stitch ring sits near the felt (inner) edge of the band
-const RAIL_BRASS = 0x8a6d3b;
+const RAIL_W = 28; // band width beyond the felt edge, both layout modes
+const RAIL_METAL = [0x9aa3b8, 0x5d6580, 0x353b52, 0x1c2032] as const; // top → bottom
+const RAIL_EDGE = 0xc7cedb; // bright outer edge + glint
+const RAIL_LIP = 0x0b0e1c; // dark lip between metal and felt
+const RAIL_LIP_W = 6;
+const RAIL_STITCH = 0x3a4160;
+const RAIL_STITCH_INSET = 3; // stitch ring rides the lip
+const LED_COLOR = 0xffb64d; // --c-orange (amber)
+const LED_COUNT = 22;
 const STITCH_DASH = 4;
 const STITCH_GAP = 4;
 const GLINT_LEN = 24;
@@ -84,7 +89,7 @@ function drawDashedEllipse(
 
 /**
  * FeltActor — draws today's felt look purely from `layout.ts` geometry:
- * navy radial felt ellipse, leather rail with stitch + brass trim + a
+ * indigo radial felt ellipse, titanium rail with LED studs + stitch + a
  * traveling glint, racetrack line, vignette, and a tiled noise/weave overlay.
  * Rebuilt wholesale on a layout change (cheap; static
  * geometry) except the rail glint, which is driven by one ticker callback
@@ -124,10 +129,51 @@ class FeltActor {
     const { cx, cy, rx, ry } = L.felt;
     const style = feltStyle(mode);
 
-    // --- Leather rail: base band, dashed stitch, brass trim + traveling glint.
+    // --- Titanium rail: drop shadow, metal band, edge highlight, inner lip,
+    // stitch ring, amber LED studs (+ soft additive glow), traveling glint.
     this.view.addChild(
-      new Graphics().ellipse(cx, cy, rx + RAIL_W, ry + RAIL_W).fill({ color: RAIL_BASE }),
+      new Graphics()
+        .ellipse(cx, cy + 14, rx + RAIL_W + 6, ry + RAIL_W + 8)
+        .fill({ color: 0x000000, alpha: 0.45 }),
     );
+    const metal = new FillGradient({
+      type: 'linear',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 1 },
+      colorStops: [
+        { offset: 0, color: RAIL_METAL[0] },
+        { offset: 0.18, color: RAIL_METAL[1] },
+        { offset: 0.55, color: RAIL_METAL[2] },
+        { offset: 1, color: RAIL_METAL[3] },
+      ],
+      textureSpace: 'local',
+    });
+    this.view.addChild(new Graphics().ellipse(cx, cy, rx + RAIL_W, ry + RAIL_W).fill(metal));
+    this.view.addChild(
+      new Graphics()
+        .ellipse(cx, cy, rx + RAIL_W - 1, ry + RAIL_W - 1)
+        .stroke({ width: 2, color: RAIL_EDGE, alpha: 0.35 }),
+    );
+    this.view.addChild(
+      new Graphics().ellipse(cx, cy, rx + RAIL_LIP_W, ry + RAIL_LIP_W).fill({ color: RAIL_LIP }),
+    );
+    const ledRx = rx + RAIL_LIP_W + (RAIL_W - RAIL_LIP_W) / 2;
+    const ledRy = ry + RAIL_LIP_W + (RAIL_W - RAIL_LIP_W) / 2;
+    const leds = new Graphics();
+    const ledGlow = new Graphics();
+    for (let i = 0; i < LED_COUNT; i++) {
+      const a = ((i + 0.5) / LED_COUNT) * Math.PI * 2;
+      const x = cx + ledRx * Math.cos(a);
+      const y = cy + ledRy * Math.sin(a);
+      // Tangent of the ellipse at `a`, so each stud lies along the rail.
+      const t = Math.atan2(ledRy * Math.cos(a), -ledRx * Math.sin(a));
+      leds.moveTo(x - Math.cos(t) * 5, y - Math.sin(t) * 5).lineTo(x + Math.cos(t) * 5, y + Math.sin(t) * 5);
+      ledGlow.circle(x, y, 10);
+    }
+    leds.stroke({ width: 3, color: LED_COLOR, cap: 'round' });
+    ledGlow.fill({ color: LED_COLOR, alpha: 0.14 });
+    ledGlow.blendMode = 'add';
+    this.view.addChild(ledGlow, leds);
     const stitch = new Graphics();
     drawDashedEllipse(
       stitch,
@@ -140,18 +186,15 @@ class FeltActor {
       { width: 2, color: RAIL_STITCH },
     );
     this.view.addChild(stitch);
-    this.view.addChild(
-      new Graphics().ellipse(cx, cy, rx + RAIL_W, ry + RAIL_W).stroke({ width: 1, color: RAIL_BRASS }),
-    );
-    const glint = new Graphics().roundRect(-GLINT_LEN / 2, -1, GLINT_LEN, 2, 1).fill({ color: RAIL_BRASS });
+    const glint = new Graphics().roundRect(-GLINT_LEN / 2, -1, GLINT_LEN, 2, 1).fill({ color: RAIL_EDGE });
     glint.blendMode = 'add';
     this.view.addChild(glint);
     this.glint = glint;
-    this.glintGeom = { cx, cy, rx: rx + RAIL_W, ry: ry + RAIL_W };
+    this.glintGeom = { cx, cy, rx: rx + RAIL_W - 2, ry: ry + RAIL_W - 2 };
     this.applyGlint(); // place at the current phase now — no pop-in at (0,0) for a frame
 
-    // Felt: navy radial (#1a3a78 → #142c5c → #0c1b3a), highlight biased upward to
-    // match `radial-gradient(ellipse at 50% 32%, …)` in tokens.css.
+    // Felt: indigo radial (#33366a → #25274b → #15162e), highlight biased
+    // upward to match `--c-felt` in tokens.css.
     const feltGradient = new FillGradient({
       type: 'radial',
       center: { x: 0.5, y: 0.34 },
@@ -159,9 +202,9 @@ class FeltActor {
       outerCenter: { x: 0.5, y: 0.5 },
       outerRadius: 0.72,
       colorStops: [
-        { offset: 0, color: 0x1a3a78 },
-        { offset: 0.48, color: 0x142c5c },
-        { offset: 1, color: 0x0c1b3a },
+        { offset: 0, color: 0x33366a },
+        { offset: 0.48, color: 0x25274b },
+        { offset: 1, color: 0x15162e },
       ],
       textureSpace: 'local',
     });
@@ -175,8 +218,8 @@ class FeltActor {
       outerCenter: { x: 0.5, y: 0.16 },
       outerRadius: 0.5,
       colorStops: [
-        { offset: 0, color: 'rgba(140, 190, 255, 0.14)' },
-        { offset: 1, color: 'rgba(140, 190, 255, 0)' },
+        { offset: 0, color: 'rgba(170, 175, 255, 0.10)' },
+        { offset: 1, color: 'rgba(170, 175, 255, 0)' },
       ],
       textureSpace: 'local',
     });
@@ -238,9 +281,9 @@ class FeltActor {
       outerCenter: { x: 0.5, y: 0.5 },
       outerRadius: 0.72,
       colorStops: [
-        { offset: 0, color: 'rgba(6, 12, 26, 0)' },
-        { offset: 0.62, color: 'rgba(6, 12, 26, 0)' },
-        { offset: 1, color: 'rgba(6, 12, 26, 0.55)' },
+        { offset: 0, color: 'rgba(8, 9, 24, 0)' },
+        { offset: 0.62, color: 'rgba(8, 9, 24, 0)' },
+        { offset: 1, color: 'rgba(8, 9, 24, 0.6)' },
       ],
       textureSpace: 'local',
     });
@@ -250,12 +293,12 @@ class FeltActor {
     this.view.addChild(
       new Graphics()
         .ellipse(cx, cy, rx - 2, ry - 2)
-        .stroke({ width: 2, color: 0x6ea0ff, alpha: 0.28 }),
+        .stroke({ width: 2, color: 0x8f93ff, alpha: 0.18 }),
     );
     this.view.addChild(
       new Graphics()
         .ellipse(cx, cy, rx - rx * 0.11, ry - ry * 0.18)
-        .stroke({ width: 1.5, color: 0x6ea0ff, alpha: 0.16 }),
+        .stroke({ width: 1.5, color: 0x8f93ff, alpha: 0.12 }),
     );
 
     // Deck stack: a rotated card-back at layout.deck, with a couple of offset
@@ -271,7 +314,7 @@ class FeltActor {
         deck.addChild(
           new Graphics()
             .roundRect(-w / 2 + dx, -h / 2 + dy, w, h, 5)
-            .fill({ color: 0x13234c, alpha }),
+            .fill({ color: 0x1b1d3d, alpha }),
         );
       }
       const back = new Sprite(this.textures.cardBack);

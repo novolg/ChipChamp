@@ -17,20 +17,9 @@ export type FeelEvent =
   | { type: 'HERO_BUST' }
   | { type: 'BOT_OUT'; slot: SeatSlot };
 
-// Matches the same "<name> wins <amount>" prefix FreePlayScreen's winInfo and
-// useTableSfx's heroWinAmount parse (trailing " with <hand>" is ignored here).
-const WIN_RE = /^(.+?) wins (\d+)/;
-
 const heroToAct = (game: GameState): boolean => {
   const heroId = game.seats.find((s) => s.isHuman)?.id;
   return game.phase === 'betting' && game.toActSeatId != null && game.toActSeatId === heroId;
-};
-
-/** Resolve a "<name> wins" log-note name to the slot of the seat that won,
- *  same convention as FreePlayScreen's winnerSlot (hero matched by "You"). */
-const winnerSeatSlot = (game: GameState, name: string): SeatSlot => {
-  const seat = game.seats.find((s) => (name === 'You' ? s.isHuman : s.name === name));
-  return seat ? slotOfSeat(game, seat.id) : 'hero';
 };
 
 export function deriveFeelEvents(prev: GameState | null, next: GameState): FeelEvent[] {
@@ -76,20 +65,19 @@ export function deriveFeelEvents(prev: GameState | null, next: GameState): FeelE
   }
 
   if (next.phase === 'handComplete' && prev.phase !== 'handComplete') {
-    const wins = next.log
-      .map((e) => e.note?.match(WIN_RE))
-      .filter((m): m is RegExpMatchArray => m != null);
-    if (wins.length > 0) {
-      const heroWin = wins.find((m) => m[1] === 'You');
-      const top = heroWin ?? wins[0];
-      const amount = wins
-        .filter((m) => m[1] === top[1])
-        .reduce((sum, m) => sum + Number(m[2]), 0);
+    // Featured winner = the hero if they took any share, else the biggest
+    // winner (amount summed over every pot that seat won).
+    const heroId = next.seats.find((s) => s.isHuman)?.id;
+    const bySeat = new Map<number, number>();
+    for (const p of next.result?.payouts ?? []) bySeat.set(p.seatId, (bySeat.get(p.seatId) ?? 0) + p.amount);
+    const ranked = [...bySeat.entries()].sort((a, b) => b[1] - a[1]);
+    const top = ranked.find(([id]) => id === heroId) ?? ranked[0];
+    if (top) {
       events.push({
         type: 'WIN',
-        heroWon: Boolean(heroWin),
-        amount,
-        winnerSlot: winnerSeatSlot(next, top[1]),
+        heroWon: top[0] === heroId,
+        amount: top[1],
+        winnerSlot: slotOfSeat(next, top[0]),
       });
     }
 

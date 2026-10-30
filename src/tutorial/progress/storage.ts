@@ -19,27 +19,42 @@ function defaultAdapter(): StorageAdapter | null {
 }
 
 /** Load progress, falling back to a fresh record on any error or version mismatch. */
-export function loadProgress(now: string, adapter: StorageAdapter | null = defaultAdapter()): Progress {
-  if (!adapter) return emptyProgress(now);
+export function loadProgress(now: string, adapter: StorageAdapter | null = defaultAdapter(), unavailableFallback = emptyProgress(now)): Progress {
+  if (!adapter) return unavailableFallback;
   try {
     const raw = adapter.getItem(STORAGE_KEY);
     if (!raw) return emptyProgress(now);
     const parsed = JSON.parse(raw) as Partial<Progress>;
     if (parsed.version !== 1) return emptyProgress(now);
-    // Merge over a fresh record so missing fields are filled in.
-    return { ...emptyProgress(now), ...parsed, version: 1 } as Progress;
+    const fresh = emptyProgress(now);
+    const ids = (value: unknown) => Array.isArray(value) ? [...new Set(value.filter((v): v is string => typeof v === 'string' && v.length < 256))] : [];
+    const count = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    const scores = parsed.quizScores && typeof parsed.quizScores === 'object' ? parsed.quizScores : {};
+    return {
+      ...fresh,
+      completedLessonIds: ids(parsed.completedLessonIds),
+      completedScriptedHandIds: ids(parsed.completedScriptedHandIds),
+      quizScores: Object.fromEntries(Object.entries(scores).filter(([, score]) => score && typeof score === 'object').map(([id, score]) => [id, {
+        best: typeof score.best === 'number' && Number.isFinite(score.best) ? Math.min(1, Math.max(0, score.best)) : 0,
+        attempts: count(score.attempts),
+      }])),
+      freePlayStats: { handsPlayed: count(parsed.freePlayStats?.handsPlayed), netChips: Number.isSafeInteger(parsed.freePlayStats?.netChips) ? parsed.freePlayStats!.netChips : 0 },
+      ...(typeof parsed.lastFreePlayHandId === 'string' ? { lastFreePlayHandId: parsed.lastFreePlayHandId } : {}),
+      lastUpdated: typeof parsed.lastUpdated === 'string' ? parsed.lastUpdated : now,
+    };
   } catch {
-    return emptyProgress(now);
+    return unavailableFallback;
   }
 }
 
 /** Persist progress; swallows quota/serialization errors (best-effort). */
-export function saveProgress(progress: Progress, adapter: StorageAdapter | null = defaultAdapter()): void {
-  if (!adapter) return;
+export function saveProgress(progress: Progress, adapter: StorageAdapter | null = defaultAdapter()): boolean {
+  if (!adapter) return false;
   try {
     adapter.setItem(STORAGE_KEY, JSON.stringify(progress));
+    return true;
   } catch {
-    // Ignore quota or serialization failures — progress is non-critical.
+    return false;
   }
 }
 

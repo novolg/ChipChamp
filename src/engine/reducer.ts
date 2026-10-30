@@ -63,6 +63,7 @@ export function createTable(config: TableConfig): GameState {
     handNumber: 0,
     log: [],
     phase: 'handComplete',
+    result: null,
   };
 }
 
@@ -145,6 +146,7 @@ export function startHand(state: GameState, opts: StartHandOptions = {}): GameSt
   next.street = Street.Preflop;
   next.board = [];
   next.log = [{ street: Street.Preflop, note: `Hand #${next.handNumber}` }];
+  next.result = null;
 
   for (const seat of next.seats) {
     seat.holeCards = [];
@@ -373,6 +375,11 @@ function awardUncontested(state: GameState): GameState {
   const total = state.seats.reduce((sum, s) => sum + s.committedTotal, 0);
   if (winner) winner.stack += total;
   state.pots = winner ? [{ amount: total, eligibleSeatIds: [winner.id] }] : [];
+  state.result = {
+    uncontested: true,
+    payouts: winner ? [{ seatId: winner.id, amount: total, potIndex: 0 }] : [],
+    shown: [],
+  };
   state.toActSeatId = null;
   state.phase = 'handComplete';
   state.log.push({
@@ -413,6 +420,13 @@ function goToShowdown(state: GameState): GameState {
     getSeat(state, award.seatId).stack += award.amount;
   }
   state.pots = computeFinalPots(awards);
+  state.result = {
+    uncontested: false,
+    payouts: awards.map(({ seatId, amount, potIndex }) => ({ seatId, amount, potIndex })),
+    shown: state.seats
+      .filter((s) => (s.status === 'active' || s.status === 'allin') && s.holeCards.length === 2)
+      .map((s) => ({ seatId: s.id, rank: evaluateHand(s.holeCards, state.board) })),
+  };
   for (const award of awards) {
     const winner = getSeat(state, award.seatId);
     const rank = evaluateHand(winner.holeCards, state.board);

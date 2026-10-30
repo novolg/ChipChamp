@@ -15,7 +15,8 @@ import { deriveEmotion, chipLeaderProud, handTell, type Emotion } from '../../li
 import { useGazeDirector, gazeVector } from '../../hooks/useGazeDirector';
 import { useCountUp } from '../../hooks/useCountUp';
 import { useProgressStore } from '../../store/progressStore';
-import { useSettingsStore, prefersReducedMotion } from '../../store/settingsStore';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useSettingsStore } from '../../store/settingsStore';
 import { useFitScale } from '../../hooks/useFitScale';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { BOT_DELAY_MS } from '../../store/gameStore';
@@ -138,12 +139,14 @@ function SceneOverlay({
   thinkingSeatId,
   layout: L,
   mode,
+  use3d,
   children,
 }: {
   game: GameState;
   thinkingSeatId: number | null | undefined;
   layout: TableLayout;
   mode: LayoutMode;
+  use3d: boolean;
   children: ReactNode;
 }) {
   const { sb, bb } = blindSeats(game);
@@ -172,7 +175,11 @@ function SceneOverlay({
   // over-constrained — the center bet stack (bets.center), the pot capsule
   // (potLabel), and the physical pot chips (pot) leave no clear slot for it up
   // there — and the clear band under the board reads it as the board's phase.
-  const streetPt: Pt = { x: L.board.x, y: L.board.y + L.cardH / 2 + (mode === 'portrait' ? 22 : 26) };
+  // Landscape (indigo look): the street tag crowns the pot capsule; portrait
+  // keeps it under the board.
+  const streetPt: Pt = mode === 'portrait'
+    ? { x: L.board.x, y: L.board.y + L.cardH / 2 + 22 }
+    : { x: L.potLabel.x, y: L.potLabel.y - 46 };
 
   return (
     <>
@@ -198,7 +205,8 @@ function SceneOverlay({
         const tell = acting || justBet ? handTell(seat, game.board) : null;
         const gaze = gazeVector(pos, gazeState?.target ?? 'forward');
         return (
-          <div key={`${seat.id}-${game.handNumber}`} className="scene-seat" style={at(L.seats[pos])}>
+          // Keyed by seat only: the 3D bot (WebGL) survives new hands; dealKey replays the deal-in.
+          <div key={seat.id} className={`scene-seat scene-seat-${pos}`} style={at(L.seats[pos])}>
             <Seat
               seat={seat}
               isToAct={acting}
@@ -213,6 +221,8 @@ function SceneOverlay({
               gaze={gaze}
               proud={proud}
               tell={tell ?? undefined}
+              use3d={use3d}
+              dealKey={game.handNumber}
             />
           </div>
         );
@@ -277,7 +287,7 @@ function SceneOverlay({
 export default function TableScene({ game, thinkingSeatId, children }: TableSceneProps) {
   const settings = useSettingsStore((s) => s.settings);
   const settingRenderer = settings.renderer;
-  const reducedMotion = prefersReducedMotion(settings);
+  const reducedMotion = useReducedMotion();
   const isMobile = useIsMobile();
   const fitScale = useFitScale();
 
@@ -397,8 +407,10 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
     let current: PokerScene | null = null;
     let currentCanvas: HTMLCanvasElement | null = null;
     let retried = false;
+    let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 
     const teardown = () => {
+      clearTimeout(loadingTimer);
       if (currentCanvas) currentCanvas.removeEventListener('webglcontextlost', onContextLost);
       current?.destroy();
       if (sceneRef.current === current) sceneRef.current = null;
@@ -421,8 +433,15 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
     }
 
     const spawn = () => {
+      loadingTimer = setTimeout(() => {
+        // A late result must destroy itself rather than revive a retired scene.
+        cancelled = true;
+        teardown();
+        setTier('dom');
+      }, 12000);
       PokerScene.create(host, modeRef.current, activeTier)
         .then((scene) => {
+          clearTimeout(loadingTimer);
           if (cancelled) {
             scene.destroy();
             return;
@@ -439,6 +458,7 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
           scene.sync(gameRef.current, thinkingSeatIdRef.current);
         })
         .catch((err) => {
+          clearTimeout(loadingTimer);
           if (cancelled) return;
           console.warn('[TableScene] Pixi scene init failed; falling back to DOM.', err);
           setTier('dom');
@@ -505,7 +525,7 @@ export default function TableScene({ game, thinkingSeatId, children }: TableScen
         style={{ width: L.size.w, height: L.size.h, transform: `translate(-50%, -50%) scale(${scale})`, ...botDelayStyle }}
       >
         <div className="scene-canvas" ref={hostRef} aria-hidden="true" />
-        <SceneOverlay game={game} thinkingSeatId={thinkingSeatId} layout={L} mode={mode}>
+        <SceneOverlay game={game} thinkingSeatId={thinkingSeatId} layout={L} mode={mode} use3d={tier === 'full'}>
           {children}
         </SceneOverlay>
       </div>

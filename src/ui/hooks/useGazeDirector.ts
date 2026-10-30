@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from './useReducedMotion';
 import type { Emotion } from '../lib/botEmotion';
 import type { GameState } from '../../engine/types';
 
@@ -93,23 +94,6 @@ const FOCUS_MS = 1200; // big-moment / watch-actor hold
 const RELIEF_MS = 900; // transient exhale after pressure resolves
 const AMBIENT_MS = 600; // ambient tick
 
-/** True when the user prefers reduced motion (SSR-safe, reactive). */
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(() =>
-    typeof window !== 'undefined' && 'matchMedia' in window
-      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      : false,
-  );
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('matchMedia' in window)) return;
-    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mql.addEventListener('change', onChange);
-    return () => mql.removeEventListener('change', onChange);
-  }, []);
-  return reduced;
-}
-
 /**
  * Cosmetic gaze + ambient director. Returns a per-seat gaze target and an
  * optional transient expression override. The ONLY stateful/timed/Math.random
@@ -117,7 +101,7 @@ function usePrefersReducedMotion(): boolean {
  * Fully disabled under prefers-reduced-motion (returns an empty map, no timers).
  */
 export function useGazeDirector(game: GameState): Map<number, GazeState> {
-  const reduced = usePrefersReducedMotion();
+  const reduced = useReducedMotion();
   const [map, setMap] = useState<Map<number, GazeState>>(EMPTY);
 
   // Bots, in felt order (left/center/right). Hero excluded.

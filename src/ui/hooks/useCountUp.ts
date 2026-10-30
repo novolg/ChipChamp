@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from './useReducedMotion';
 
 /** Ease a displayed number toward `target` (~450ms ease-out). Snaps on mount. */
 export function useCountUp(target: number, duration = 450): number {
+  const reduced = useReducedMotion();
   const [display, setDisplay] = useState(target);
   const displayRef = useRef(target);
 
@@ -10,7 +12,7 @@ export function useCountUp(target: number, duration = 450): number {
     if (from === target) return;
     // Snap instead of rolling for reduced-motion users — the CSS kill-switch
     // can't touch this rAF-driven number animation.
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    if (reduced || duration <= 0) {
       displayRef.current = target;
       setDisplay(target);
       return;
@@ -27,7 +29,7 @@ export function useCountUp(target: number, duration = 450): number {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
+  }, [target, duration, reduced]);
 
   return display;
 }

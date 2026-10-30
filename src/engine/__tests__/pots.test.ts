@@ -126,4 +126,16 @@ describe('resolveShowdown', () => {
     expect(s1).toBe(53);
     expect(s2).toBe(52);
   });
+  it('gives the odd chip left of the button even when the button also ties', () => {
+    const seats = [
+      seat({ id: 0, committedTotal: 35, holeCards: [c(2, 's'), c(3, 'd')] }),
+      seat({ id: 1, committedTotal: 35, holeCards: [c(2, 'h'), c(3, 'c')] }),
+      seat({ id: 2, committedTotal: 35, status: 'folded' }),
+    ];
+    const board = [c(10, 'c'), c(11, 'h'), c(12, 'd'), c(13, 's'), c(14, 'c')];
+    expect(resolveShowdown(state(seats, board))).toEqual([
+      { seatId: 1, amount: 53, potIndex: 0 },
+      { seatId: 0, amount: 52, potIndex: 0 },
+    ]);
+  });
 });

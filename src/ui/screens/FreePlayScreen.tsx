@@ -1,6 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { useProgressStore } from '../store/progressStore';
 import { AppFrame } from '../components/AppFrame';
 import { ActionControls } from '../components/controls/ActionControls';
 import { CoachingRail } from '../components/coaching/CoachingRail';
@@ -9,12 +8,14 @@ import { useCountUp } from '../hooks/useCountUp';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { payoutTier } from '../../feel/intensity';
 import { canDealNextHand, heroIsBusted } from '../lib/derive';
+import { describeHand, featuredWinner, isSplitPot } from '../lib/result';
+import { useShowdownStaging } from '../hooks/useShowdownStaging';
+import { useSettingsStore } from '../store/settingsStore';
 import { playSfx } from '../lib/sound';
 import type { GameState } from '../../engine/types';
 
-/** The hybrid Pixi scene + DOM overlay table (with DOM-only fallback). Lazily
- *  loaded so PixiJS isn't in the initial bundle / on the Learn screen. */
-const TableScene = lazy(() => import('../components/table/TableScene'));
+import { ResilientTable } from '../components/table/ResilientTable';
+import { TableReadout, PotBreakdown } from '../components/table/TableReadout';
 
 type WinSlot = 'hero' | 'left' | 'center' | 'right';
 
@@ -23,6 +24,8 @@ interface WinInfo {
   amount: number;
   hand?: string;
   heroWon: boolean;
+  /** Main pot shared by 2+ winners. */
+  split: boolean;
   /** Table slot the chips fly to (mirrors Table.tsx's seat order). */
   slot: WinSlot;
 }
@@ -46,36 +49,39 @@ const FLY_MOBILE: Record<WinSlot, [number, number]> = {
   right: [110, -150],
 };
 
-function winnerSlot(game: GameState, name: string): WinSlot {
-  const seat = game.seats.find((s) => (name === 'You' ? s.isHuman : s.name === name));
-  if (!seat || seat.isHuman) return 'hero';
+function winnerSlot(game: GameState, seat: GameState['seats'][number]): WinSlot {
+  if (seat.isHuman) return 'hero';
   return POSITIONS[game.seats.filter((s) => !s.isHuman).indexOf(seat)] ?? 'hero';
 }
 
-/** Parse the engine's "<name> wins <amount> [with <hand>|uncontested]" notes. */
+/** Banner data from the engine's structured result (hero featured if they won any share). */
 function winInfo(game: GameState): WinInfo | null {
-  const wins = game.log
-    .map((e) => e.note?.match(/^(.+?) wins (\d+)(?: with (.+))?/))
-    .filter((m): m is RegExpMatchArray => m != null);
-  if (wins.length === 0) return null;
-  const heroWin = wins.find((m) => m[1] === 'You');
-  const top = heroWin ?? wins[0];
+  const w = featuredWinner(game);
+  if (!w || !game.result) return null;
+  const seat = game.seats.find((s) => s.id === w.seatId)!;
+  const shown = game.result.shown.find((h) => h.seatId === w.seatId);
   return {
-    name: top[1],
-    amount: wins.filter((m) => m[1] === top[1]).reduce((s, m) => s + Number(m[2]), 0),
-    hand: top[3],
-    heroWon: Boolean(heroWin),
-    slot: winnerSlot(game, top[1]),
+    name: seat.isHuman ? 'You' : seat.name,
+    amount: w.amount,
+    hand: shown ? describeHand(shown.rank) : undefined,
+    heroWon: seat.isHuman,
+    split: isSplitPot(game.result),
+    slot: winnerSlot(game, seat),
   };
 }
 
 export function FreePlayScreen() {
-  const game = useGameStore((s) => s.game);
+  // `live` is the engine state; `game` is what the table shows — the same,
+  // except a contested showdown is replayed step by step (useShowdownStaging).
+  const live = useGameStore((s) => s.game);
+  const speed = useSettingsStore((s) => s.settings.speed);
+  const game = useShowdownStaging(live, speed);
   const botThinking = useGameStore((s) => s.botThinking);
   const newGame = useGameStore((s) => s.newGame);
   const dealHand = useGameStore((s) => s.dealHand);
   const playerAction = useGameStore((s) => s.playerAction);
-  const record = useProgressStore((s) => s.record);
+  const sessionSaved = useGameStore((s) => s.sessionSaved);
+  const hasTableControl = useGameStore((s) => s.hasTableControl);
 
   const isMobile = useIsMobile();
 
@@ -85,25 +91,15 @@ export function FreePlayScreen() {
   // Start a game once on mount (guard against StrictMode double-invoke).
   useEffect(() => {
     if (!useGameStore.getState().game) newGame();
-  }, [newGame]);
+  }, [newGame, hasTableControl]);
 
-  // Record each completed hand once, with the hero's net chip change.
-  const heroStartStack = useRef<number | null>(null);
-  const recordedHand = useRef<number>(-1);
+  // A table pauses while in the lobby, lessons or a hidden browser tab.
   useEffect(() => {
-    if (!game) return;
-    const hero = game.seats.find((s) => s.isHuman);
-    if (!hero) return;
-    if (game.phase === 'betting' && heroStartStack.current === null) {
-      heroStartStack.current = hero.stack + hero.committedTotal;
-    }
-    if (game.phase === 'handComplete' && recordedHand.current !== game.handNumber) {
-      const start = heroStartStack.current ?? hero.stack;
-      record({ type: 'freePlayHand', netChips: hero.stack - start });
-      recordedHand.current = game.handNumber;
-      heroStartStack.current = null;
-    }
-  }, [game, record]);
+    const update = () => document.hidden ? useGameStore.getState().pause() : useGameStore.getState().resume();
+    update();
+    document.addEventListener('visibilitychange', update);
+    return () => { document.removeEventListener('visibilitychange', update); useGameStore.getState().pause(); };
+  }, [hasTableControl]);
 
   // The hero-bust "you're out" sting is now emitted by the feel-director's
   // HERO_BUST recipe (see TableScene), so no separate one-shot is needed here.
@@ -137,14 +133,14 @@ export function FreePlayScreen() {
 
   const fly = isMobile ? FLY_MOBILE : FLY;
 
-  const headerExtra = `BLINDS ${game.smallBlind}/${game.bigBlind} · HAND ${game.handNumber}`;
+  const headerExtra = `BLINDS ${game.smallBlind}/${game.bigBlind} · HAND ${game.handNumber}${sessionSaved ? "" : " · SESSION NOT SAVED"}`;
 
   return (
     <AppFrame variant="table" active="free" headerExtra={headerExtra}>
       <div className="play-grid">
         <div className="play-main">
-          <Suspense fallback={<div className="play-loading">Loading…</div>}>
-          <TableScene game={game} thinkingSeatId={botThinking ? game.toActSeatId : null}>
+          <TableReadout game={game} />
+          <ResilientTable game={game} thinkingSeatId={botThinking ? game.toActSeatId : null}>
             {win && (
               <div className="win-overlay" key={game.handNumber}>
                 {win.heroWon && <Confetti count={CONFETTI[winTier]} />}
@@ -173,7 +169,7 @@ export function FreePlayScreen() {
                 <div className={`win-banner${win.heroWon ? ' win-banner-hero' : ''}`}>
                   <span className="win-title-row">
                     <img src="/assets/chip-orange.png" alt="" className="win-coin win-coin-l" />
-                    <span className="win-title">{win.heroWon ? 'YOU WIN' : `${win.name.toUpperCase()} WINS`}</span>
+                    <span className="win-title">{win.split ? 'SPLIT POT' : win.heroWon ? 'YOU WIN' : `${win.name.toUpperCase()} WINS`}</span>
                     <img src="/assets/chip-orange.png" alt="" className="win-coin win-coin-r" />
                   </span>
                   <span className="win-amount">+{winAmount.toLocaleString()}</span>
@@ -181,14 +177,14 @@ export function FreePlayScreen() {
                 </div>
               </div>
             )}
-          </TableScene>
-          </Suspense>
+          </ResilientTable>
 
           {isMobile && (
             <CoachingRail game={game} seatId={hero?.id ?? 0} active={!!heroToAct} compact />
           )}
 
           <div className="play-controls">
+            <PotBreakdown game={game} />
             {heroToAct && hero && (
               <ActionControls game={game} seatId={hero.id} onAction={playerAction} disabled={botThinking} silentPress />
             )}
@@ -196,12 +192,12 @@ export function FreePlayScreen() {
               <p className="play-wait">{botThinking ? 'Opponent is thinking…' : 'Waiting…'}</p>
             )}
             {handOver && canContinue && (
-              <button className="btn btn-blue btn-pulse" onClick={dealHand}>DEAL NEXT HAND</button>
+              <button className="btn btn-orange btn-pulse" onClick={dealHand}>DEAL NEXT HAND</button>
             )}
             {handOver && !canContinue && (
               <div className="game-over">
                 <p>{heroBusted ? 'You’re out of chips.' : 'Game over.'}</p>
-                <button className="btn btn-blue" onClick={() => { playSfx('click'); newGame(); }}>NEW GAME</button>
+                <button className="btn btn-orange" onClick={() => { playSfx('click'); newGame(); }}>NEW GAME</button>
               </div>
             )}
           </div>

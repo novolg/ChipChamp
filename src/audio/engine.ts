@@ -51,9 +51,45 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
+/** Share of the sfx bus sent to the room reverb (table sounds only; UI ticks stay dry). */
+const REVERB_SEND = 0.16;
+/** Room size: impulse length (s) and how fast it dies away. */
+const ROOM_SECONDS = 1.3;
+const ROOM_DECAY = 3.2;
+
+/** Synthetic "small wooden saloon" impulse: stereo noise with an exponential
+ *  tail, softened over time (each sample averaged with the last) so the tail
+ *  darkens like a real room instead of hissing. */
+function roomImpulse(c: BaseAudioContext): AudioBuffer {
+  const frames = Math.floor(c.sampleRate * ROOM_SECONDS);
+  const buf = c.createBuffer(2, frames, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    let prev = 0;
+    for (let i = 0; i < frames; i++) {
+      const t = i / frames;
+      const smooth = Math.min(0.9, t * 1.4); // more low-pass as the tail goes on
+      const v = (Math.random() * 2 - 1) * Math.pow(1 - t, ROOM_DECAY);
+      prev = prev * smooth + v * (1 - smooth);
+      data[i] = prev;
+    }
+  }
+  return buf;
+}
+
 function buildGraph(c: AudioContext): void {
   masterNode = c.createGain();
   masterNode.gain.value = masterGain();
+  // Clarity EQ: cut sub rumble the small speakers can't play (it only eats
+  // headroom), and lift the "air" band a little so clicks and bells read.
+  const rumbleCut = c.createBiquadFilter();
+  rumbleCut.type = 'highpass';
+  rumbleCut.frequency.value = 38;
+  rumbleCut.Q.value = 0.7;
+  const air = c.createBiquadFilter();
+  air.type = 'highshelf';
+  air.frequency.value = 6500;
+  air.gain.value = 2.5;
   // Gentle brick-wall limiter: protects the busiest cues (all-in into a win,
   // ~11 stacked voices) from clipping. Threshold sits above any single cue's
   // peak, so a lone click and the win arpeggio are unchanged — only stacked
@@ -64,13 +100,21 @@ function buildGraph(c: AudioContext): void {
   limiter.ratio.value = 12;
   limiter.attack.value = 0.003;
   limiter.release.value = 0.12;
-  masterNode.connect(limiter).connect(c.destination);
+  masterNode.connect(rumbleCut).connect(air).connect(limiter).connect(c.destination);
+
+  // Room reverb, fed only from the sfx bus (send → convolver → master).
+  const reverbSend = c.createGain();
+  reverbSend.gain.value = REVERB_SEND;
+  const room = c.createConvolver();
+  room.buffer = roomImpulse(c);
+  reverbSend.connect(room).connect(masterNode);
 
   busNodes.clear();
   for (const name of BUS_NAMES) {
     const g = c.createGain();
     g.gain.value = busVolumes[name];
     g.connect(masterNode);
+    if (name === 'sfx') g.connect(reverbSend);
     busNodes.set(name, g);
   }
 }

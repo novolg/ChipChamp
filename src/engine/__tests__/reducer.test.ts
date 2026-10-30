@@ -226,3 +226,63 @@ describe('bot/UI never sees illegal turn', () => {
     expect(() => applyAction(s, act('call', 2))).toThrow();
   });
 });
+
+describe('structured hand result', () => {
+  const cc = (r: number, su: string): Card => ({ rank: r as Card['rank'], suit: su as Card['suit'] });
+
+  it('is null while a hand is live', () => {
+    const s = startHand(createTable(table([1000, 1000, 1000])));
+    expect(s.result ?? null).toBeNull();
+  });
+
+  it('records an uncontested win with no shown hands', () => {
+    let s = startHand(createTable(table([1000, 1000, 1000])));
+    s = applyAction(s, act('fold', 0));
+    s = applyAction(s, act('fold', 1));
+    expect(s.result).toEqual({ uncontested: true, payouts: [{ seatId: 2, amount: 30, potIndex: 0 }], shown: [] });
+  });
+
+  it('records side-pot payouts and every shown hand', () => {
+    const deck = buildStackedDeck({
+      dealOrder: [1, 2, 0],
+      holeCards: {
+        0: [cc(14, 's'), cc(14, 'd')],
+        1: [cc(13, 'h'), cc(12, 'h')],
+        2: [cc(7, 'c'), cc(2, 'd')],
+      },
+      board: [cc(14, 'h'), cc(14, 'c'), cc(13, 's'), cc(9, 'h'), cc(4, 'h')],
+    });
+    let s = startHand(createTable(table([100, 200, 200], 0)), { deck });
+    s = applyAction(s, act('allin', 0));
+    s = applyAction(s, act('allin', 1));
+    s = applyAction(s, act('allin', 2));
+    expect(s.result?.uncontested).toBe(false);
+    expect(s.result?.payouts).toEqual([
+      { seatId: 0, amount: 300, potIndex: 0 },
+      { seatId: 1, amount: 200, potIndex: 1 },
+    ]);
+    expect(s.result?.shown.map((h) => h.seatId).sort()).toEqual([0, 1, 2]);
+    const quads = s.result!.shown.find((h) => h.seatId === 0)!.rank;
+    expect(quads.cards).toHaveLength(5);
+  });
+
+  it('records both winners of a split pot', () => {
+    const deck = buildStackedDeck({
+      dealOrder: [1, 0],
+      holeCards: { 0: [cc(2, 's'), cc(3, 'h')], 1: [cc(2, 'd'), cc(3, 'c')] },
+      board: [cc(10, 'h'), cc(11, 'c'), cc(12, 's'), cc(13, 'h'), cc(14, 'd')],
+    });
+    let s = startHand(createTable(table([1000, 1000], 0)), { deck });
+    s = applyAction(s, act('allin', 0));
+    s = applyAction(s, act('allin', 1));
+    expect(s.result?.payouts.map((p) => [p.seatId, p.amount])).toEqual([[0, 1000], [1, 1000]]);
+  });
+
+  it('is cleared when the next hand starts', () => {
+    let s = startHand(createTable(table([1000, 1000, 1000])));
+    s = applyAction(s, act('fold', 0));
+    s = applyAction(s, act('fold', 1));
+    s = startHand(s);
+    expect(s.result).toBeNull();
+  });
+});

@@ -66,8 +66,8 @@ function orderFromButton(seatIds: number[], seats: Seat[], buttonSeatId: number)
   const idxOf = (id: number) => seats.findIndex((s) => s.id === id);
   const btnIdx = seats.findIndex((s) => s.id === buttonSeatId);
   return [...seatIds].sort((a, b) => {
-    const da = (idxOf(a) - btnIdx + n) % n;
-    const db = (idxOf(b) - btnIdx + n) % n;
+    const da = (idxOf(a) - btnIdx - 1 + n) % n;
+    const db = (idxOf(b) - btnIdx - 1 + n) % n;
     return da - db;
   });
 }

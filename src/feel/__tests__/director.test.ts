@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDirector, type Channels, type DirectorOpts } from '../director';
 
-// Guard for the "injected scheduler never loads gsap" invariant: this factory
-// only runs if something actually imports the gsap module. Every test in this
-// file injects a scheduler, so the flag must stay false (asserted at the end).
+// Scheduling cues must not pull the optional graphics animation bundle in.
 const gsapProbe = vi.hoisted(() => ({ loaded: false }));
 vi.mock('gsap', () => {
   gsapProbe.loaded = true;
@@ -107,6 +105,23 @@ const winEvent = (heroWon: boolean, amount: number): FeelEvent => ({
 });
 
 describe('createDirector', () => {
+  it('native scheduling fires due cues and cancels remaining cues on teardown', () => {
+    vi.useFakeTimers();
+    try {
+      const { ch, calls } = fakeChannels();
+      const director = createDirector(ch, baseOpts({ schedule: undefined }));
+      director.dispatch([{ type: 'HAND_START', handNumber: 1 }], gs());
+      vi.advanceTimersByTime(1);
+      expect(calls.audio.length).toBeGreaterThan(0);
+      const played = calls.audio.length;
+      director.cancelAll();
+      vi.runAllTimers();
+      expect(calls.audio).toHaveLength(played);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('WIN monster event -> confetti count 56, win semitones 4', () => {
     const { ch, calls } = fakeChannels();
     const director = createDirector(ch, baseOpts());
@@ -242,10 +257,7 @@ describe('createDirector', () => {
     expect(() => director.cancelAll()).not.toThrow();
   });
 
-  // Keep this test LAST: it asserts that none of the tests above (all of
-  // which inject a scheduler) caused the gsap module to load. If a future
-  // test accidentally exercises the default scheduler, this fails loudly.
-  it('never loads gsap when a scheduler is injected', () => {
+  it('never loads gsap for native or injected scheduling', () => {
     expect(gsapProbe.loaded).toBe(false);
   });
 });

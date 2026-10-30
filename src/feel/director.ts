@@ -2,9 +2,7 @@
 // reduced-motion, and render-quality-tier settings. Pure orchestration: it
 // owns no cues/timings itself (recipes.ts does) and no rendering (Channels,
 // injected by the caller, does). The only framework-adjacent bit is the
-// default scheduler (gsap.delayedCall) — lazily imported on first use, so
-// callers that inject their own `schedule` (all tests) never load gsap's
-// module code at all.
+// default scheduler uses cancellable native timers; rendering stays in channels.
 
 import type { GameState } from '../engine/types';
 import type { FeelEvent } from './events';
@@ -24,9 +22,8 @@ export interface DirectorOpts {
   speed: () => number;
   reducedMotion: () => boolean;
   tier: () => QualityTier;
-  /** Default: gsap.delayedCall(ms/1000, fn), returning a `.kill()` cancel fn.
-   *  Tests inject their own (immediate or recording) scheduler so no GSAP
-   *  runs in node tests. */
+  /** Default: a native timeout with a cancellation function.
+   * Tests may inject an immediate or recording scheduler. */
   schedule?: (fn: () => void, ms: number) => () => void;
 }
 
@@ -44,46 +41,14 @@ const DEFAULT_REDUCED: Record<ChannelName, 'keep' | 'drop' | 'instant'> = {
   haptic: 'keep',
 };
 
-// gsap is loaded lazily (dynamic import, cached) so that a director with an
-// injected scheduler never executes gsap's module code — type-only references
-// below don't load anything. createDirector warms the cache up front when the
-// default scheduler will be used, so the async load has normally settled long
-// before the first step is scheduled.
-type Gsap = (typeof import('gsap'))['gsap'];
-let gsapCache: Gsap | null = null;
-let gsapLoading: Promise<Gsap | null> | null = null;
-
-const loadGsap = (): Promise<Gsap | null> =>
-  (gsapLoading ??= import('gsap').then(
-    (m) => (gsapCache = m.gsap),
-    (err: unknown) => {
-      // I/O boundary: with code splitting this is a network chunk fetch and
-      // can fail. Warn once; default-scheduled steps are then dropped
-      // (cosmetic layer only — never let feel-FX break the app).
-      console.warn('[feel] gsap failed to load; default-scheduled steps dropped:', err);
-      return null;
-    },
-  ));
-
+// Native timers keep DOM feedback independent from optional graphics bundles.
 const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
-  let cancelled = false;
-  let tween: { kill: () => void } | null = null;
-  const start = (g: Gsap | null): void => {
-    if (!g || cancelled) return;
-    tween = g.delayedCall(Math.max(0, ms) / 1000, fn);
-  };
-  if (gsapCache) start(gsapCache);
-  else void loadGsap().then(start); // first-use only: delay starts once loaded
-  return () => {
-    cancelled = true;
-    tween?.kill();
-  };
+  const timer = setTimeout(fn, Math.max(0, ms));
+  return () => clearTimeout(timer);
 };
 
 export function createDirector(ch: Channels, opts: DirectorOpts) {
   const schedule = opts.schedule ?? defaultSchedule;
-  // Warm the gsap cache only when the default scheduler is actually in play.
-  if (!opts.schedule) void loadGsap();
 
   // Each pending entry is a stable object so a step that fires synchronously
   // (an "immediate" test scheduler) can remove itself from `pending` before

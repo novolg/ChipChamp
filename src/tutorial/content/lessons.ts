@@ -44,6 +44,7 @@ export const LESSONS: Lesson[] = [
         markdown:
           'Hands are ranked from strongest to weakest. When two players reach showdown, the higher-ranked hand wins. Ties are broken by the highest cards (*kickers*).',
       },
+      { kind: 'bestFiveChallenge' },
       { kind: 'handRankTable' },
       {
         kind: 'cardExample',
@@ -84,6 +85,7 @@ export const LESSONS: Lesson[] = [
         markdown:
           '**Position** is where you sit relative to the button. Acting *later* in a betting round is a big advantage: you see what everyone else does before you decide.',
       },
+      { kind: 'positionChallenge' },
       { kind: 'positionDiagram' },
       {
         kind: 'text',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { playSfx } from '../../lib/sound';
+import { useSettingsStore, prefersReducedMotion } from '../../store/settingsStore';
 
 interface SeatInfo {
   id: string;
@@ -58,6 +59,7 @@ const TONE_FILL: Record<SeatInfo['tone'], string> = {
 
 /** Clickable 6-max table map: tap a seat to learn what that position means. */
 export function PositionDiagram() {
+  const reduced = prefersReducedMotion(useSettingsStore((s) => s.settings));
   const [selectedId, setSelectedId] = useState('btn');
   const selected = SEATS.find((s) => s.id === selectedId)!;
 
@@ -68,7 +70,7 @@ export function PositionDiagram() {
   };
 
   return (
-    <div className="posmap">
+    <div className="posmap" data-reduced={reduced}>
       <svg viewBox="0 0 420 240" className="posmap-svg" role="group" aria-label="table positions">
         <ellipse cx="210" cy="120" rx="186" ry="104" fill="#18233e" />
         <ellipse cx="210" cy="120" rx="174" ry="92" fill="#142c5c" stroke="rgba(110,160,255,0.35)" strokeWidth="2" />
@@ -89,12 +91,15 @@ export function PositionDiagram() {
               aria-pressed={active}
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') select(seat.id);
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  select(seat.id);
+                }
               }}
               // fill-box + center: scale about the seat's own centre (matches the
               // verified botface.css pattern; absolute viewBox coords would not).
               style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-              animate={{ scale: active ? 1.12 : 1 }}
+              animate={{ scale: !reduced && active ? 1.12 : 1 }}
               transition={{ type: 'spring', stiffness: 600, damping: 26, mass: 0.7 }}
             >
               <circle cx={seat.x} cy={seat.y} r="23" fill={TONE_FILL[seat.tone]} opacity={active ? 1 : 0.45} />

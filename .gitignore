@@ -26,3 +26,8 @@ ChipChamp.zip
 
 # design reference screenshots — third-party, local-only design input
 references/
+
+# 3D source models — large originals (Claude Design exports); the game ships the
+# simplified copies in public/assets/bots/
+assets-src/
+.vercel

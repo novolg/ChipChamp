@@ -74,10 +74,9 @@ export function HandRankTable() {
             <tr
               key={cat}
               className={`rank-row${cat === selected ? ' rank-row-active' : ''}`}
-              onClick={() => setSelected(cat)}
             >
               <td>{i + 1}</td>
-              <td>{HAND_CATEGORY_LABEL[cat]}</td>
+              <td><button className="rank-select-button" aria-pressed={cat === selected} onClick={() => setSelected(cat)}>{HAND_CATEGORY_LABEL[cat]}</button></td>
               {/* Always rendered; CSS reveals it on hover / active row. */}
               <td className="rank-row-chevron" aria-hidden="true">▸</td>
             </tr>

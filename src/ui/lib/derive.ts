@@ -1,5 +1,4 @@
 import type { Card, GameState } from '../../engine/types';
-import { evaluateHand, compareHandRank } from '../../engine/evaluator';
 import { LEARNING_PATH } from '../../tutorial/content/learningPath';
 import { QUIZZES_BY_ID } from '../../tutorial/content/quizzes';
 import { isStepComplete } from '../../tutorial/progress/progressReducer';
@@ -29,39 +28,23 @@ export function isShowdown(game: GameState): boolean {
   return contesting.length >= 2;
 }
 
-/** The set of card keys forming the winning hand(s) at showdown, for highlighting. */
+/** The set of card keys forming the winning hand(s) at showdown, for
+ *  highlighting — every seat that won any pot (side-pot winners included).
+ *  Empty until the engine's result exists (and while the showdown is staged). */
 export function winningCardKeys(game: GameState): Set<string> {
-  if (!isShowdown(game) || game.board.length < 5) return new Set();
-  const contenders = game.seats.filter(
-    (s) => (s.status === 'active' || s.status === 'allin') && s.holeCards.length === 2,
-  );
-  if (contenders.length === 0) return new Set();
-
-  let best = evaluateHand(contenders[0].holeCards, game.board);
-  let winners = [contenders[0]];
-  for (const seat of contenders.slice(1)) {
-    const rank = evaluateHand(seat.holeCards, game.board);
-    const cmp = compareHandRank(rank, best);
-    if (cmp > 0) {
-      best = rank;
-      winners = [seat];
-    } else if (cmp === 0) {
-      winners.push(seat);
-    }
-  }
-
   const keys = new Set<string>();
-  for (const seat of winners) {
-    for (const c of evaluateHand(seat.holeCards, game.board).cards) keys.add(key(c));
+  if (!isShowdown(game) || !game.result) return keys;
+  const winners = new Set(game.result.payouts.map((p) => p.seatId));
+  for (const h of game.result.shown) {
+    if (winners.has(h.seatId)) for (const c of h.rank.cards) keys.add(key(c));
   }
   return keys;
 }
 
-/** Names of this hand's winners, parsed from the "X wins ..." notes in the log. */
+/** Names of this hand's winners (from the engine's structured result). */
 export function winnerNames(game: GameState): Set<string> {
-  return new Set(
-    game.log.map((e) => e.note?.match(/^(.+?) wins /)?.[1]).filter((n): n is string => !!n),
-  );
+  const ids = new Set(game.result?.payouts.map((p) => p.seatId) ?? []);
+  return new Set(game.seats.filter((s) => ids.has(s.id)).map((s) => s.name));
 }
 
 /** The human seat is out of chips. (Caller gates on handComplete; during an

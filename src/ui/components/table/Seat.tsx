@@ -1,6 +1,7 @@
 import type { ActionType, Card, Seat as SeatType } from '../../../engine/types';
 import { PlayingCard } from './Card';
-import { BotFace, botIdFor, type BotId, type Emotion } from './BotFace';
+import { botIdFor, type BotId, type Emotion } from './BotFace';
+import { BotPortrait, BOT_ROLE } from './BotPortrait';
 import { useCountUp } from '../../hooks/useCountUp';
 import { BOT_DELAY_MS } from '../../store/gameStore';
 import type { GazeVec } from '../../hooks/useGazeDirector';
@@ -38,6 +39,10 @@ interface SeatProps {
   proud?: boolean;
   /** Faint strength tell, only while acting. */
   tell?: HandTell;
+  /** Live 3D bot instead of the PNG portrait (Pixi tiers only). */
+  use3d?: boolean;
+  /** Changes each hand → card backs remount and replay the deal-in. */
+  dealKey?: number;
 }
 
 const key = (c: Card) => `${c.rank}${c.suit}`;
@@ -52,7 +57,7 @@ export function StackAmount({ value }: { value: number }) {
 }
 
 /** A bot seat: fanned card backs (or revealed cards), animated face, name plate. */
-export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking, emotion, emotionSeq, emote, gaze, proud, tell }: SeatProps) {
+export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bubble, thinking, emotion, emotionSeq, emote, gaze, proud, tell, use3d, dealKey }: SeatProps) {
   const folded = seat.status === 'folded';
   const allIn = seat.status === 'allin';
   // Busted: 0 chips at deal → seated 'out' with no hole cards. Render as a dim,
@@ -63,9 +68,12 @@ export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bu
   const bot = botIdFor(seat.name);
 
   return (
-    <div className={`botseat${isToAct ? ' botseat-acting' : ''}${folded ? ' botseat-folded' : ''}${isOut ? ' botseat-out' : ''}`}>
+    <div
+      className={`botseat${isToAct ? ' botseat-acting' : ''}${folded ? ' botseat-folded' : ''}${isOut ? ' botseat-out' : ''}${proud ? ' botseat-proud' : ''}`}
+      data-tell={tell ?? undefined}
+    >
       <div className="botseat-top">
-        <div className="botseat-cards">
+        <div key={dealKey} className="botseat-cards">
           {isOut ? null : showCards ? (
             seat.holeCards.map((c, i) => (
               <PlayingCard
@@ -84,16 +92,16 @@ export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bu
         </div>
         <span className="botseat-avatar-wrap">
           <div className="botseat-avatar">
-            <BotFace
-                bot={bot}
-                emotion={emotion}
-                seatId={seat.id}
-                name={seat.name}
-                emotionSeq={emotionSeq}
-                gaze={gaze}
-                proud={proud}
-                tell={tell}
-              />
+            <BotPortrait
+              bot={bot}
+              emotion={emotion}
+              emotionSeq={emotionSeq}
+              gaze={gaze}
+              folded={folded || isOut}
+              acting={isToAct}
+              use3d={use3d}
+              action={bubble ? { type: bubble.type, seq: bubble.seq } : undefined}
+            />
           </div>
           {/* Timebank: full ring when idle; drains over BOT_DELAY_MS while
               acting, reddening near empty. pathLength=100 → dash math in %. */}
@@ -118,6 +126,7 @@ export function Seat({ seat, isToAct, revealCards, blindLabel, highlightKeys, bu
         ) : null}
         <div className="botseat-plate">
           <span className="botseat-name">{seat.name}</span>
+          <span className="botseat-role">{BOT_ROLE[bot]}</span>
           {blindLabel && <span className="badge badge-blind">{blindLabel}</span>}
           {allIn && <span className="badge badge-allin">ALL-IN</span>}
           {isOut ? (

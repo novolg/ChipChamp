@@ -1,0 +1,64 @@
+[
+  {
+    "file": "bg-saloon.png",
+    "width": 1920,
+    "height": 1200,
+    "opaque": true
+  },
+  {
+    "file": "bot-ava.png",
+    "width": 1024,
+    "height": 1024,
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "top_visible_row": 59
+  },
+  {
+    "file": "bot-ben-folded.png",
+    "width": 1024,
+    "height": 1024,
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "top_visible_row": 101
+  },
+  {
+    "file": "bot-ben.png",
+    "width": 1024,
+    "height": 1024,
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "top_visible_row": 96
+  },
+  {
+    "file": "bot-cleo.png",
+    "width": 1024,
+    "height": 1024,
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "alpha_min": 0,
+    "alpha_max": 255,
+    "top_visible_row": 62
+  }
+]

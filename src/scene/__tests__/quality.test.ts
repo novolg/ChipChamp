@@ -4,6 +4,10 @@ import { resolveTier, defaultProbe, type WebGLProbeResult } from '../quality';
 const probe = (r: WebGLProbeResult) => () => r;
 
 describe('resolveTier', () => {
+  it('keeps WebGL2 graphics available regardless of screen size', () => {
+    expect(resolveTier('auto', probe('webgl2'))).toBe('full');
+    expect(resolveTier('reduced', probe('webgl2'))).toBe('reduced');
+  });
   it('passes forced settings straight through, ignoring the probe', () => {
     // A probe that would say "full" must not override an explicit lower setting.
     expect(resolveTier('dom', probe('webgl2'))).toBe('dom');
